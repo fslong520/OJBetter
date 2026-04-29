@@ -5,7 +5,7 @@
 
 import { hintGenerator } from './ai/providers.js';
 import { getSettings, saveSettings } from './storage/settings.js';
-import { addHistory, getRecentHistory } from './storage/history.js';
+import { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, exportHistory, clearHistory } from './storage/history.js';
 import { learningPlanGenerator } from './learning-plan/generator.js';
 
 // ==================== Install ====================
@@ -63,36 +63,83 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+  // ==================== Port-based Keepalive ====================
+// MV3 service worker 休眠是流式中断的根因。
+// 使用 chrome.alarms + 长连接 双重保活，确保长思考模型不会中断。
+const _streamPorts = new Map();
+let _activeStreams = new Set(); // 当前活跃的 streamId
+
+// 启动流式保活：创建 chrome alarm 防止 Service Worker 休眠
+function startStreamKeepalive(streamId) {
+  _activeStreams.add(streamId);
+  const alarmName = 'ojbetter-keepalive-' + streamId;
+  console.log('[keepalive] Starting for', streamId);
+  chrome.alarms.create(alarmName, { delayInMinutes: 0.25, periodInMinutes: 0.25 }); // 每 15 秒
+}
+
+// 停止流式保活
+function stopStreamKeepalive(streamId) {
+  _activeStreams.delete(streamId);
+  const alarmName = 'ojbetter-keepalive-' + streamId;
+  console.log('[keepalive] Stopping for', streamId);
+  chrome.alarms.clear(alarmName).catch(() => {});
+}
+
+// Alarm 触发器：定期唤醒 Service Worker，向 storage 写入心跳
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name.startsWith('ojbetter-keepalive-')) {
+    const streamId = alarm.name.replace('ojbetter-keepalive-', '');
+    const key = 'stream:' + streamId;
+    chrome.storage.local.set({
+      [key]: { status: 'streaming', keepalive: Date.now() }
+    }).catch(() => {});
+  }
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name?.startsWith('stream-keepalive:')) {
+    const streamId = port.name.split(':')[1];
+    _streamPorts.set(streamId, port);
+    port.onDisconnect.addListener(() => {
+      _streamPorts.delete(streamId);
+    });
+  }
+});
+
 // ==================== Storage-based Stream ====================
 async function startStreaming(message, sender) {
   const { streamId, problemText, hintLevel, previousHints, chatHistory, coachMode, isTranslate } = message;
   const key = 'stream:' + streamId;
-  const set = (obj) => chrome.storage.local.set({ [key]: obj }).catch(() => {});
+  const set = (obj) => chrome.storage.local.set({ [key]: obj });
 
-  set({ status: 'thinking', thinking: '', content: '' });
+  try {
+    await set({ status: 'thinking', thinking: '', content: '' });
+  } catch (e) {
+    console.error('Failed to init stream storage:', e);
+    return;
+  }
 
   // 增量缓冲：只写增量，不写全量，降低存储压力
   let accT = '', accC = '';
   let pendT = '', pendC = '', timer = null;
-  const FLUSH_MS = 800; // 安全频率：~75次/分钟，远低于120限制
+  const FLUSH_MS = 100; // Increase streaming frequency for smoother feel (60fps range)
 
   const flush = () => {
     if (pendT || pendC) {
-      accT += pendT; accC += pendC;
+      const dt = pendT; const dc = pendC;
+      pendT = ''; pendC = '';
+      accT += dt; accC += dc;
       const delta = {};
-      if (pendT) delta.thinkDelta = pendT;
-      if (pendC) delta.contentDelta = pendC;
+      if (dt) delta.thinkDelta = dt;
+      if (dc) delta.contentDelta = dc;
       delta.thinkLen = accT.length;
       delta.contentLen = accC.length;
-      set({ status: 'streaming', ...delta });
-      pendT = ''; pendC = '';
+      set({ status: 'streaming', ...delta }).catch(e => console.error('Stream flush failed:', e));
     }
     timer = null;
   };
 
-  // 翻译模式：不传思考内容，减少写入量
   const onThinking = (t) => {
-    if (isTranslate) return; // 翻译不需要思考显示
     pendT += t;
     if (!timer) timer = setTimeout(flush, FLUSH_MS);
   };
@@ -100,16 +147,38 @@ async function startStreaming(message, sender) {
     pendC += c;
     if (!timer) timer = setTimeout(flush, FLUSH_MS);
   };
+  // 启动双层 keepalive：chrome.alarms 防止 Service Worker 休眠
+  startStreamKeepalive(streamId);
+
+  const cleanupStream = () => {
+    stopStreamKeepalive(streamId);
+    const port = _streamPorts.get(streamId);
+    if (port) { try { port.disconnect(); } catch(_) {} }
+  };
+
   const onDone = (full) => {
     clearTimeout(timer); flush();
-    set({ status: 'done', content: accC || full || '', thinkLen: accT.length, contentLen: (accC || full || '').length });
-    addHistory({ question: String(problemText||'').slice(0,200), answer: full || accC, hintLevel: hintLevel || 0, url: '' }).catch(()=>{});
-    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 60000);
+    const finalAnswer = full || accC || '';
+    set({ status: 'done', content: finalAnswer, thinkLen: accT.length, contentLen: finalAnswer.length }).catch(e => console.error('Stream onDone failed:', e));
+    // 把最终助手回复补进 chatHistory
+    const updatedChat = [...(chatHistory || [])];
+    if (finalAnswer.trim()) updatedChat.push({ role: 'assistant', content: finalAnswer });
+    addHistory({ 
+      question: String(problemText||'').slice(0, 200),
+      fullQuestion: String(problemText||'').slice(0, 4000),
+      answer: finalAnswer,
+      hintLevel: hintLevel || 0,
+      url: '',
+      chatHistory: updatedChat
+    }).catch(()=>{});
+    cleanupStream();
+    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 600000);
   };
   const onError = (e) => {
     clearTimeout(timer); flush();
-    set({ status: 'error', error: e.message });
-    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 60000);
+    set({ status: 'error', error: e.message || String(e) }).catch(err => console.error('Stream onError failed:', err));
+    cleanupStream();
+    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 600000);
   };
 
   try {
@@ -125,14 +194,84 @@ async function startStreaming(message, sender) {
   }
 }
 
+// ==================== 学习计划流式生成 ====================
+async function startPlanStreaming(message, sender) {
+  const { streamId, chatHistory, problemText } = message;
+  const key = 'plan:' + streamId;
+  const set = (obj) => chrome.storage.local.set({ [key]: obj });
+
+  try {
+    await set({ status: 'thinking', thinking: '', content: '' });
+  } catch (e) {
+    console.error('Failed to init plan stream:', e);
+    return;
+  }
+
+  let accT = '', accC = '';
+  let pendT = '', pendC = '', timer = null;
+  const FLUSH_MS = 100;
+
+  const flush = () => {
+    if (pendT || pendC) {
+      const dt = pendT; const dc = pendC;
+      pendT = ''; pendC = '';
+      accT += dt; accC += dc;
+      const delta = {};
+      if (dt) delta.thinkDelta = dt;
+      if (dc) delta.contentDelta = dc;
+      set({ status: 'streaming', ...delta }).catch(e => console.error('Plan flush failed:', e));
+    }
+    timer = null;
+  };
+
+  const onThinking = (t) => {
+    pendT += t;
+    if (!timer) timer = setTimeout(flush, FLUSH_MS);
+  };
+  const onContent = (c) => {
+    pendC += c;
+    if (!timer) timer = setTimeout(flush, FLUSH_MS);
+  };
+  const onDone = (full) => {
+    clearTimeout(timer); flush();
+    set({ status: 'done', content: full || accC || '' }).catch(e => console.error('Plan onDone failed:', e));
+    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 600000);
+  };
+  const onError = (e) => {
+    clearTimeout(timer); flush();
+    set({ status: 'error', error: e.message || String(e) }).catch(err => console.error('Plan onError failed:', err));
+    setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 600000);
+  };
+
+  try {
+    await learningPlanGenerator.streamPlan(chatHistory || [], problemText || '', onThinking, onContent, onDone, onError);
+  } catch (e) {
+    onError(e);
+  }
+}
+
 async function handleMessage(message, sender) {
   switch (message.type) {
     case 'generateHint':
       return handleGenerateHint(message, sender);
     case 'getHistory':
       return { history: await getRecentHistory(20) };
+    case 'getAllHistory':
+      return { records: await getAllHistory() };
+    case 'getHistoryByDay':
+      return { days: await getHistoryByDay() };
+    case 'exportHistory':
+      exportHistory(message.date);
+      return { success: true };
+    case 'clearHistory':
+      await clearHistory();
+      return { success: true };
     case 'getLearningPlan':
-      return { plan: await learningPlanGenerator.generatePlan() };
+      // 流式学习计划现在改由 startPlanStream 处理，这里保留降级逻辑
+      return { plan: await learningPlanGenerator.generatePlanFallback(await learningPlanGenerator.analyzeHistory()) };
+    case 'startPlanStream':
+      startPlanStreaming(message, sender);
+      return { status: 'started' };
     case 'getSettings':
       return { settings: await getSettings() };
     case 'saveSettings':
@@ -184,10 +323,21 @@ async function handleTranslate(message, sender) {
 // ==================== Page Content ====================
 async function getPageContent(sender) {
   let tabId = sender?.tab?.id;
+  
+  // 如果 sender 没有 tab 信息（扩展刚加载时常见），从所有窗口查找
   if (!tabId) {
+    // 先尝试当前窗口的活动标签页
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0]) return { content: '', error: '未找到活跃标签页' };
-    tabId = tabs[0].id;
+    if (tabs[0]?.id) { tabId = tabs[0].id; }
+  }
+  if (!tabId) {
+    // 最后尝试任意窗口的活动标签页
+    const allTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (allTabs[0]?.id) { tabId = allTabs[0].id; }
+  }
+  if (!tabId) {
+    console.warn('[getPageContent] Could not find any active tab');
+    return { content: '', error: '未找到活跃标签页' };
   }
 
   try {
@@ -206,13 +356,12 @@ async function getPageContent(sender) {
       target: { tabId },
       func: () => {
         try {
-          const el = document.querySelector('#task-statement, main, article, [class*="problem"], [class*="question"], .markdown-body, #app');
-          if (!el) return { content: (document.body?.innerText || '').slice(0, 3000), isHTML: false };
-          const clone = el.cloneNode(true);
-          clone.querySelectorAll('script, style, noscript, svg, .katex-mathml, nav, footer, header, iframe, img, .btn-copy').forEach(n => n.remove());
-          let html = clone.innerHTML;
-          if (html.length > 10000) html = html.slice(0, 10000);
-          return { content: html, isHTML: true };
+          let text = document.body?.innerText || '';
+          // 只保留中英文、数字、常见标点、emoji
+          text = text.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s.,;:!?()\[\]{}<>"'_\-+*/=@#$%^&|\\~`\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B50}\u{2B06}\u{2194}\u{21AA}\u{2935}\u{25C0}\u{25B6}\u{23E9}\u{23EA}\u{23EB}\u{23EC}\u{2705}\u{274C}\u{2B55}\u{2753}\u{2757}\u{2795}\u{2796}\u{2797}\u{2716}\u{1F300}-\u{1F9FF}]+/gu, ' ');
+          text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+          text = text.slice(0, 8000);
+          return { content: text, isHTML: false };
         } catch (e) {
           return { content: (document.body?.innerText || '').slice(0, 3000), isHTML: false };
         }

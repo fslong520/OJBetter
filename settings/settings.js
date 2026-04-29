@@ -30,6 +30,7 @@ async function loadSettings() {
     document.getElementById('custom-model').value = s.customModel || '';
     document.getElementById('custom-api-key').value = s.customApiKey || '';
     document.getElementById('default-hint-level').value = s.defaultHintLevel || 2;
+    document.getElementById('coach-style-select').value = s.coachStyle || 'default';
 
     // 暂时用缓存或默认值填充，fetchModels 会异步更新
     const cachedModels = s.cachedModels || [];
@@ -208,6 +209,7 @@ async function saveSettings() {
     customModel: document.getElementById('custom-model').value.trim(),
     customApiKey: document.getElementById('custom-api-key').value.trim(),
     defaultHintLevel: parseInt(document.getElementById('default-hint-level').value),
+    coachStyle: document.getElementById('coach-style-select').value || 'default',
     cachedModels
   };
 

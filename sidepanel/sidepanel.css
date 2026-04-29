@@ -218,6 +218,7 @@ body {
 }
 
 .chat-bubble {
+  position: relative;
   padding: 10px 14px;
   border-radius: 16px;
   font-size: 13px;
@@ -242,7 +243,7 @@ body {
 .chat-bubble h4 { font-size: 13px; margin: 4px 0 2px; }
 .chat-bubble ul, .chat-bubble ol { padding-left: 18px; margin: 4px 0; }
 .chat-bubble li { margin: 2px 0; }
-.chat-bubble strong { font-weight: 600; }
+.chat-bubble strong { font-weight: 600; color: #dc2626; }
 .chat-bubble em { font-style: italic; }
 .chat-bubble blockquote {
   border-left: 3px solid var(--primary);
@@ -270,30 +271,30 @@ body {
   font-weight: 500;
 }
 .chat-bubble pre {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: #f5f5f5;
+  color: #1f2937;
   padding: 0;
   border-radius: 8px;
   overflow-x: auto;
   margin: 6px 0;
   font-size: 12px;
   font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
-  border: 1px solid #313244;
+  border: 1px solid #e5e7eb;
 }
 .chat-bubble .code-header {
-  background: #313244;
-  color: #a6adc8;
+  background: #e5e7eb;
+  color: #4b5563;
   padding: 4px 10px;
   font-size: 10px;
   font-weight: 500;
-  border-bottom: 1px solid #45475a;
+  border-bottom: 1px solid #d1d5db;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 .chat-bubble .code-block code {
   display: block;
   padding: 8px 10px;
-  color: #cdd6f4;
+  color: #1f2937;
   background: transparent;
   white-space: pre;
   overflow-x: auto;
@@ -306,6 +307,34 @@ body {
 .chat-bubble .title-io { color: #2563eb; }
 
 .error-msg { color: #ef4444; font-size: 13px; }
+
+/* Copy markdown button */
+.copy-md-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-secondary, #6b7280);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  padding: 0;
+  line-height: 1;
+}
+.chat-bubble:hover .copy-md-btn {
+  opacity: 1;
+}
+.copy-md-btn:hover {
+  background: rgba(0,0,0,0.12);
+}
 
 /* Thinking indicator */
 .thinking-indicator {
@@ -388,6 +417,21 @@ body {
   transform: scale(0.95);
 }
 
+.send-btn.stop-active {
+  background: #ef4444;
+  animation: pulse-stop 1.5s infinite;
+}
+
+.send-btn.stop-active:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+@keyframes pulse-stop {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
 /* Remove old hint button / capture area styles */
 .capture-area {
   display: flex;
@@ -460,19 +504,22 @@ body {
 
 .capture-btn {
   width: 100%;
-  padding: 8px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-secondary); /* 使用次要背景色作为底色 */
+  color: var(--primary); /* 醒目的主色调文字 */
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
+  border: 2px solid var(--primary-light); /* 增加显眼的边框 */
 }
 
 .capture-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 /* Thinking area */
@@ -795,6 +842,57 @@ body {
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
+}
+
+.history-day {
+  margin-bottom: 12px;
+}
+
+.history-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.history-day-export {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 14px;
+}
+.history-day-export:hover { opacity: 1; }
+
+.history-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+.storage-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.export-all-btn {
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.export-all-btn:hover {
+  background: var(--bg-secondary);
 }
 
 .empty-state {

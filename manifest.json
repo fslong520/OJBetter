@@ -33,7 +33,9 @@
     "storage",
     "contextMenus",
     "activeTab",
-    "scripting"
+    "scripting",
+    "alarms",
+    "downloads"
   ],
   "host_permissions": [
     "<all_urls>"

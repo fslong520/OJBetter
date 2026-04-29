@@ -7,6 +7,7 @@ const $ = (sel) => document.querySelector(sel);
 let _streamPort = null;  // 保留兼容
 let _streamId = null;
 let _streamCleanup = null;
+let _keepalivePort = null;  // keepalive port，防止 service worker 休眠
 let _currentAssistantEl = null; // 正在流式写入的 AI 消息元素
 
 // ==================== Init ====================
@@ -37,11 +38,9 @@ function checkPendingHint() {
 
 // ==================== Events ====================
 function bindEvents() {
-  const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => {
-    captureAndCoach();
-  });
+  const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => { captureAndCoach(); });
   const trans = $('#translate-btn'); if (trans) trans.addEventListener('click', captureAndTranslate);
-  const send = $('#chat-send-btn'); if (send) send.addEventListener('click', sendCoachMessage);
+  const send = $('#chat-send-btn'); if (send) send.onclick = sendCoachMessage;
   const input = $('#chat-input'); if (input) {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
@@ -54,6 +53,19 @@ function bindEvents() {
   const pBack = $('#plan-back-btn'); if (pBack) pBack.addEventListener('click', () => switchPanel('chat'));
   const toggle = $('#thinking-toggle'); if (toggle) toggle.addEventListener('click', () => {
     const a = $('#thinking-area'); if (a) a.classList.toggle('collapsed');
+  });
+  const exportAll = $('#export-all-btn'); if (exportAll) exportAll.addEventListener('click', () => {
+    sendMessageSafe({ type: 'exportHistory' });
+  });
+  const clearAll = $('#clear-all-btn'); if (clearAll) clearAll.addEventListener('click', async () => {
+    if (!confirm('确定要清除所有提问记录吗？此操作不可恢复。')) return;
+    const r = await sendMessageSafe({ type: 'clearHistory' });
+    if (r?.success) {
+      alert('已清除所有提问记录');
+      const list = document.getElementById('history-list');
+      if (list) list.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><p>已清除所有记录</p></div>';
+      updateStorageInfo();
+    }
   });
 }
 
@@ -105,9 +117,11 @@ async function captureAndTranslate() {
 // ==================== Translate ====================
 function streamTranslate(problemText) {
   problemText = safeStr(problemText);
-  showChatArea();
-  const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译中...';
+  // 清理 UI
   const msgs = $('#chat-messages'); if (msgs) msgs.innerHTML = '';
+  showChatArea();
+
+  const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译中...';
   showThinking(true);
   _currentAssistantEl = addChatMessage('assistant', '', true);
   startStream({
@@ -120,10 +134,24 @@ function streamTranslate(problemText) {
     isTranslate: true
   }, {
     onDone: (full) => {
-      const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译完成';
       const cleaned = (full || '').replace(/<[^>]+>/g, '').trim();
       const input = $('#problem-input');
-      if (input && cleaned) input.value = cleaned;
+      if (input) input.value = '';
+      // 如果翻译结果为空，显示错误
+      if (!cleaned) {
+        if (_currentAssistantEl) {
+          _currentAssistantEl.querySelector('.chat-bubble').innerHTML = '<span class="error-msg">❌ 翻译结果为空，请重试或检查 API 配置</span>';
+          _currentAssistantEl = null;
+        }
+        const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译失败';
+        return;
+      }
+      const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译完成';
+      // 存入题目便于后续对话，但不自动开始教练
+      state.problemText = cleaned;
+      state.chatHistory = [];
+      state.inChat = true;
+      setChatInputEnabled(true);
     }
   });
 }
@@ -131,9 +159,12 @@ function streamTranslate(problemText) {
 function startCoach(problemText) {
   problemText = String(problemText || '');
   if (!problemText) return;
+  // 强制清理所有旧状态
   state.problemText = problemText;
   state.chatHistory = [];
   state.inChat = true;
+  const msgs = $('#chat-messages');
+  if (msgs) msgs.innerHTML = '';
   showChatArea();
   // 添加题目预览
   const preview = problemText.replace(/<[^>]+>/g, '').slice(0, 200);
@@ -151,6 +182,7 @@ function startCoach(problemText) {
 
 function sendCoachMessage() {
   if (!state.inChat) return;
+  if (_streamId) return; // 正在流式处理中，禁止发送
   const input = $('#chat-input');
   const text = input ? String(input.value).trim() : '';
   if (!text) return;
@@ -184,6 +216,44 @@ function disconnectStream() {
   if (_streamPort) { try { _streamPort.disconnect(); } catch(_) {} _streamPort = null; }
 }
 
+// ==================== Chat Input State ====================
+function setChatInputEnabled(enabled) {
+  const input = $('#chat-input');
+  const btn = $('#chat-send-btn');
+  if (input) {
+    input.disabled = !enabled;
+    if (enabled) input.focus();
+  }
+  if (btn) {
+    if (enabled) {
+      // 恢复为发送按钮
+      btn.disabled = false;
+      btn.innerHTML = '➤';
+      btn.title = '发送';
+      btn.classList.remove('stop-active');
+      btn.onclick = sendCoachMessage;
+    } else {
+      // 变为停止按钮
+      btn.disabled = false;
+      btn.innerHTML = '⏹';
+      btn.title = '停止回复';
+      btn.classList.add('stop-active');
+      btn.onclick = stopStream;
+    }
+  }
+}
+
+function stopStream() {
+  if (!_streamId) return;
+  console.log('[stream] User stopped');
+  // 清理流并标记为已完成
+  if (_streamCleanup) _streamCleanup();
+  _streamId = null;
+  showThinking(false);
+  finalizeAssistantEl();
+  setChatInputEnabled(true);
+}
+
 function startStream(msg, extra) {
   disconnectStream();
   const streamId = 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
@@ -191,11 +261,17 @@ function startStream(msg, extra) {
   let localThink = '', localContent = '';
   let doneFinalized = false;
 
+  // 禁用输入
+  setChatInputEnabled(false);
+
   const onChange = (changes, areaName) => {
     if (areaName !== 'local') return;
     const key = 'stream:' + streamId;
     if (!changes[key]) return;
     const v = changes[key].newValue || {};
+
+    // 重置超时计时器
+    resetTimeout();
 
     // 增量追加
     if (v.thinkDelta) {
@@ -222,6 +298,8 @@ function startStream(msg, extra) {
         finalizeHintContent();
       }
       if (extra?.onDone) extra.onDone(v.content || localContent);
+      // 恢复输入
+      setChatInputEnabled(true);
     } else if (v.status === 'error' && !doneFinalized) {
       doneFinalized = true;
       cleanup();
@@ -232,17 +310,48 @@ function startStream(msg, extra) {
           _currentAssistantEl.querySelector('.chat-bubble').innerHTML = '<span class="error-msg">❌ ' + esc(err) + '</span>';
           _currentAssistantEl = null;
         }
+        setChatInputEnabled(true); // 出错后恢复输入
       } else {
         showError(err);
+        setChatInputEnabled(true); // 出错后恢复输入
       }
     }
   };
+
+  // 超时检测：延长至 30 分钟。翻译模式不设硬性超时，依靠后端完成信号。
+  let _timeoutTimer = null;
+  const TIMEOUT_MS = 1800000; 
+  const resetTimeout = () => {
+    clearTimeout(_timeoutTimer);
+    if (msg.isTranslate) return; // 翻译模式不主动超时
+
+    _timeoutTimer = setTimeout(() => {
+      if (!doneFinalized) {
+        doneFinalized = true;
+        cleanup();
+        showThinking(false);
+        if (msg.coachMode || msg.isTranslate) {
+          if (_currentAssistantEl) {
+            _currentAssistantEl.querySelector('.chat-bubble').innerHTML = '<span class="error-msg">⏱️ 请求超时，请检查网络或 API 配置后重试</span>';
+            _currentAssistantEl = null;
+          }
+          setChatInputEnabled(true);
+        } else {
+          showError('请求超时，请检查网络或 API 配置后重试');
+          setChatInputEnabled(true);
+        }
+      }
+    }, TIMEOUT_MS);
+  };
+  resetTimeout();
 
   chrome.storage.onChanged.addListener(onChange);
 
   const cleanup = () => {
     chrome.storage.onChanged.removeListener(onChange);
     chrome.storage.local.remove('stream:' + streamId).catch(()=>{});
+    // 关闭 keepalive 端口
+    if (_keepalivePort) { try { _keepalivePort.disconnect(); } catch(_) {} _keepalivePort = null; }
     _streamId = null;
     _streamCleanup = null;
   };
@@ -267,20 +376,43 @@ function startStream(msg, extra) {
     chatHistory: msg.chatHistory || [],
     coachMode: msg.coachMode || false,
     isTranslate: msg.isTranslate || false
+  }).then((resp) => {
+    if (resp?.error) {
+      showError('启动失败: ' + resp.error);
+      cleanup();
+      setChatInputEnabled(true);
+      return;
+    }
+    // 启动成功后创建 keepalive port，保持 service worker 活跃
+    try {
+    _keepalivePort = chrome.runtime.connect({ name: 'stream-keepalive:' + streamId });
+      _keepalivePort.onDisconnect.addListener(() => {
+        _keepalivePort = null;
+      });
+    } catch (_) {}
   }).catch((e) => {
     showError('启动失败: ' + e.message);
     cleanup();
+    setChatInputEnabled(true);
   });
 }
 
 function streamToAssistantEl(text) {
   if (!_currentAssistantEl) return;
   const bubble = _currentAssistantEl.querySelector('.chat-bubble');
+  if (!bubble) return;
+  // Optimized DOM update: Append a new text node instead of rewriting the whole string
+  // This prevents layout thrashing and makes scrolling/typing feel instant
+  if (!bubble._lastTextNode) {
+    bubble._lastTextNode = document.createTextNode('');
+    bubble.appendChild(bubble._lastTextNode);
+  }
+  bubble._lastTextNode.textContent += String(text);
+  // Store raw text for final markdown parsing
   if (!bubble._raw) bubble._raw = '';
-  bubble._raw += String(text);
-  bubble.textContent = bubble._raw; // 流式阶段用 textContent 防止 XSS
+  bubble._raw += text;
   scrollChatToBottom();
-  // 同步显示思考过程如果有
+  // Sync thinking display
   const ta = $('#thinking-area'); if (ta) ta.style.display = 'block';
 }
 
@@ -288,11 +420,36 @@ function finalizeAssistantEl() {
   if (!_currentAssistantEl) return;
   const bubble = _currentAssistantEl.querySelector('.chat-bubble');
   if (bubble._raw) {
+    bubble.dataset.markdown = bubble._raw;
     bubble.innerHTML = renderMarkdown(bubble._raw);
     delete bubble._raw;
+    addCopyBtn(bubble);
   }
   _currentAssistantEl = null;
   scrollChatToBottom();
+  // AI回答完成后清空聊天输入框
+  const input = document.getElementById('chat-input');
+  if (input) input.value = '';
+}
+
+function addCopyBtn(bubble) {
+  if (bubble.querySelector('.copy-md-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'copy-md-btn';
+  btn.title = '复制 Markdown';
+  btn.textContent = '📋';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const md = bubble.dataset.markdown || '';
+    navigator.clipboard.writeText(md).then(() => {
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = '📋'; }, 1500);
+    }).catch(() => {
+      btn.textContent = '✗';
+      setTimeout(() => { btn.textContent = '📋'; }, 1500);
+    });
+  });
+  bubble.appendChild(btn);
 }
 
 function safeStr(v) {
@@ -348,7 +505,25 @@ function appendThinking(text) {
   const area = $('#thinking-area'); const content = $('#thinking-content');
   if (!area || !content) return;
   if (area.style.display === 'none') area.style.display = 'block';
-  content.innerHTML += String(text); content.scrollTop = content.scrollHeight;
+
+  // Append text node for performance
+  const node = document.createTextNode(text);
+  content.appendChild(node);
+
+  // Truncate old nodes to keep DOM light (visual trick: we only show the tail)
+  const maxLen = 150;
+  if (content.innerText.length > maxLen) {
+    // We keep the text node but hide the overflow or remove old nodes
+    // Simplest: remove first child until text length is reasonable
+    while (content.childNodes.length > 1 && content.innerText.length > maxLen + 50) {
+       if (content.childNodes[0].nodeType === Node.TEXT_NODE || content.childNodes[0].nodeType === Node.COMMENT_NODE) {
+           content.removeChild(content.childNodes[0]);
+       } else {
+           break; 
+       }
+    }
+  }
+  content.scrollTop = content.scrollHeight;
 }
 function appendHintContent(text) {
   const area = $('#hint-content'); if (!area) return;
@@ -364,12 +539,19 @@ function finalizeHintContent() {
   area._rawText = '';
 }
 function showError(message) {
+  alert(String(message));
   const msgs = $('#chat-messages');
   if (msgs && state.inChat) {
-    addChatMessage('assistant', '❌ ' + esc(String(message)));
-  } else {
-    const el = $('#hint-content'); if (el) el.innerHTML = `<p style="color:#ef4444;">⚠️ ${esc(String(message))}</p>`;
+    addChatMessage('assitant', '❌ ' + esc(String(message)));
+    return;
   }
+  const hintContent = $('#hint-content');
+  if (hintContent) {
+    hintContent.innerHTML = `<p style="color:#ef4444;">⚠️ ${esc(String(message))}</p>`;
+    return;
+  }
+  const el = $('#error-message');
+  if (el) { el.textContent = message; el.style.display = 'block'; }
 }
 
 function showResultPanel(problemText, level) {
@@ -400,7 +582,12 @@ function resetToWelcome() {
   disconnectStream();
   state.chatHistory = [];
   state.inChat = false;
-  const msgs = $('#chat-messages'); if (msgs) msgs.innerHTML = '';
+  const input = $('#chat-input');
+  if (input) input.value = '';
+  const probInput = $('#problem-input');
+  if (probInput) probInput.value = '';
+  const msgs = $('#chat-messages');
+  if (msgs) msgs.innerHTML = '';
   showWelcome();
 }
 
@@ -409,33 +596,97 @@ function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function renderMarkdown(text) {
-  let p = String(text||'')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  p = p.replace(/```(\S*)\s*\n([\s\S]*?)```/g, (_,lang,code) => {
+  let raw = String(text||'');
+  // 清理流式残留
+  raw = raw.replace(/^[\s\n]*\d+\s*l\s*/, '');
+
+  let p = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // 1. 保护代码块 (避免内部换行干扰后续 split)
+  const codeBlocks = [];
+  p = p.replace(/```(\S*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
+    const id = codeBlocks.length;
     const l = (lang||'').toLowerCase();
-    return `<pre class="code-block${l?' lang-'+l:''}"><div class="code-header">${l?lang:'代码'}</div><code>${code.trim()}</code></pre>`;
+    // 将代码块保存为 HTML，内部保留换行
+    codeBlocks.push(`<pre class="code-block${l?' lang-'+l:''}"><div class="code-header">${l||'代码'}</div><code>${esc(code.trim())}</code></pre>`);
+    return `\x00C${id}\x00`;
   });
+
+  // 2. 保护 LaTeX 并做基础符号替换
+  const latexBlocks = [];
+  const renderLaTeX = (tex) => {
+    // 去除首尾的 $ 或 $$
+    let clean = tex.replace(/^\\$\\$/, '').trim().replace(/\\$\\$$/, '');
+    clean = clean.replace(/^\\$/, '').trim().replace(/\\$$/, '');
+    // 基础数学符号转换
+    return clean
+      .replace(/\\le/g, '≤').replace(/\\ge/g, '≥')
+      .replace(/\\neq/g, '≠').replace(/\\to/g, '→')
+      .replace(/\\times/g, '×').replace(/\\div/g, '÷')
+      .replace(/\\pm/g, '±').replace(/\\approx/g, '≈');
+  };
+  p = p.replace(/\$\$([\s\S]*?)\$\$|\$([^$]+)\$/g, (match, multi, single) => {
+    const id = latexBlocks.length;
+    latexBlocks.push(renderLaTeX(multi || single));
+    return `\x00L${id}\x00`;
+  });
+
+  // 3. 处理文本中的下标 (在保护代码和 LaTeX 之后)
+  // 匹配: U_{i,j} or x_i
+  p = p.replace(/([a-zA-Z0-9])_\{([a-zA-Z0-9,\s]+)\}/g, '$1<sub>$2</sub>');
+  p = p.replace(/([a-zA-Z0-9])_([0-9a-zA-Z]+)/g, '$1<sub>$2</sub>');
+
+  // 4. 基础 Markdown
   p = p.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
     .replace(/^### (.+)$/gm, '<h4 class="section-title">$1</h4>')
-    .replace(/^## (.+)$/gm, (_,t) => {
+    .replace(/^## (.+)$/gm, (_, t) => {
       const cls = /解题步骤|解题|步骤/.test(t) ? 'title-steps' : /流程图|流程|图/.test(t) ? 'title-flow' : /知识点|知识|概念/.test(t) ? 'title-knowledge' : /试一试|试试|练习/.test(t) ? 'title-try' : /输入|输出|格式/.test(t) ? 'title-io' : 'section-title';
       return `<h3 class="${cls}">${t}</h3>`;
     })
     .replace(/^# (.+)$/gm, '<h2 class="section-title main-title">$1</h2>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/^---$/gm, '<hr class="divider">')
     .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
     .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-  const lines = p.split('\n'); const result = []; let para = [];
+
+  // 5. 分行处理段落
+  const lines = p.split('\n'); 
+  const result = []; 
+  let para = [];
+
   for (const line of lines) {
+    // 检查是否是占位符（块级元素）
+    if (line.includes('\x00C') || line.includes('\x00L')) {
+       if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
+       // 直接作为块级元素输出
+       // 注意：占位符可能是一整行
+       result.push(line);
+       para = [];
+       continue;
+    }
+
     const t = line.trim();
-    if (!t) { if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } continue; }
-    if (/^<(h[2-4]|ul|ol|li|pre|hr|blockquote|div)/.test(t)) { if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } result.push(t); }
-    else { para.push(t); }
+    if (!t) { 
+      if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } 
+      continue; 
+    }
+    // 已经是 HTML 标签的行（h2, ul, li, div, etc）
+    if (/^<(h[2-4]|ul|ol|li|pre|hr|blockquote|div|sub|br)/.test(t)) { 
+      if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } 
+      result.push(t); 
+    } else { 
+      para.push(t); 
+    }
   }
   if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
-  return result.join('\n');
+
+  return result.join('\n')
+    // 6. 还原占位符
+    .replace(/\x00C(\d+)\x00/g, (_, i) => codeBlocks[i] || '')
+    .replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '');
 }
+
 
 // ==================== History / Plan ====================
 function sendMessageSafe(msg) {
@@ -448,6 +699,30 @@ function sendMessageSafe(msg) {
 function showLoading() { const o = $('#loading-overlay'); if (o) o.style.display = 'flex'; }
 function hideLoading() { const o = $('#loading-overlay'); if (o) o.style.display = 'none'; }
 
+async function updateStorageInfo() {
+  const footer = $('#history-footer');
+  const info = $('#storage-info');
+  if (!footer || !info) return;
+
+  try {
+    const bytes = await chrome.storage.local.getBytesInUse();
+    const mb = (bytes / 1024 / 1024).toFixed(1);
+    const maxMB = 10;
+    const pct = Math.round((bytes / 10 / 1024 / 1024) * 100);
+
+    footer.style.display = 'flex';
+    if (mb < 0.1) {
+      info.textContent = '暂无数据';
+    } else if (pct > 80) {
+      info.innerHTML = `<span style="color:#ef4444;">⚠️ 已用 ${mb}MB / ${maxMB}MB，建议导出后清除旧数据</span>`;
+    } else {
+      info.textContent = `已用 ${mb}MB / ${maxMB}MB`;
+    }
+  } catch (e) {
+    footer.style.display = 'none';
+  }
+}
+
 function switchPanel(panel) {
   const hp = $('#hint-panel'), hip = $('#history-panel'), pp = $('#plan-panel');
   if (hp) hp.classList.toggle('active', panel === 'chat' || panel === 'hint');
@@ -455,24 +730,184 @@ function switchPanel(panel) {
   if (pp) pp.classList.toggle('active', panel === 'plan');
 }
 
+async function getHistoryFromStorage() {
+  const r = await sendMessageSafe({ type: 'getAllHistory' });
+  return r?.records || [];
+}
+
+let _historyRecords = []; // 内存中保存当前列表的所有记录，用索引引用
+
 async function showHistory() {
   switchPanel('history'); const list = $('#history-list'); if (!list) return;
   try {
-    const r = await sendMessageSafe({ type: 'getHistory' });
-    if (!r?.history?.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>还没有记录</p></div>'; return; }
-    list.innerHTML = r.history.map(h => `<div class="history-item" data-question="${esc(h.question||'')}" data-level="${h.hintLevel||2}"><div class="history-question">${esc(String(h.question||'').slice(0,80))}</div><div class="history-meta"><span class="history-topic">${esc(h.topic||'综合')}</span><span>${new Date(h.timestamp).toLocaleDateString('zh-CN')}</span></div></div>`).join('');
-    list.querySelectorAll('.history-item').forEach(item => item.addEventListener('click', () => {
-      switchPanel('chat');
-      resetToWelcome();
-      startCoach(String(item.dataset.question||''));
-    }));
-  } catch(_) { list.innerHTML = '<div class="empty-state"><p>加载失败</p></div>'; }
+    const r = await sendMessageSafe({ type: 'getHistoryByDay' });
+    const days = r?.days || [];
+    if (!days.length) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><p>还没有记录</p></div>'; return; }
+
+    list.innerHTML = '';
+
+    days.forEach(day => {
+      const dayDiv = document.createElement('div');
+      dayDiv.className = 'history-day';
+
+      const header = document.createElement('div');
+      header.className = 'history-day-header';
+      header.innerHTML = `<span class="history-day-date">📅 ${day.date}</span><span class="history-day-export" data-date="${day.date}" title="导出当天 JSON">📥</span>`;
+      dayDiv.appendChild(header);
+
+      header.querySelector('.history-day-export').addEventListener('click', (e) => {
+        e.stopPropagation();
+        sendMessageSafe({ type: 'exportHistory', date: day.date });
+      });
+
+      day.items.forEach(h => {
+        const q = h.question || h.fullQuestion || '未知题目';
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<div class="history-question">${esc(String(q).slice(0,80))}</div><div class="history-meta"><span class="history-topic">${esc(h.topic||'综合')}</span><span>${new Date(h.timestamp).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+        // 用闭包直接捕获 h，不依赖 dataset
+        item.onclick = () => {
+          const record = h;
+          alert('点击历史项，记录存在: ' + !!record);
+          if (!record) { showError('记录数据无效'); return; }
+          // 切换面板
+          const hp = document.getElementById('hint-panel');
+          const hip = document.getElementById('history-panel');
+          if (hp) hp.classList.add('active');
+          if (hip) hip.classList.remove('active');
+          const welcome = document.getElementById('welcome-area');
+          const chat = document.getElementById('chat-area');
+          if (welcome) welcome.style.display = 'none';
+          if (chat) chat.style.display = 'flex';
+          // 显示加载提示
+            const msgs = document.getElementById('chat-messages');
+            if (msgs) msgs.innerHTML = '<div class="empty-state"><p>正在加载历史对话...</p></div>';
+            loadHistoryConversation(record);
+        };
+        dayDiv.appendChild(item);
+      });
+
+      list.appendChild(dayDiv);
+    });
+
+    updateStorageInfo();
+  } catch(e) { alert('加载历史列表失败: ' + e.message); list.innerHTML = '<div class="empty-state"><p>加载失败: '+e.message+'</p></div>'; }
 }
+
+function loadHistoryConversation(record) {
+  alert('开始加载历史对话，record存在: ' + !!record);
+  if (!record || typeof record !== 'object') {
+    showError('历史记录数据无效');
+    return;
+  }
+  try {
+    // 直接控制面板显示，不依赖 switchPanel
+    const hp = document.getElementById('hint-panel');
+    const hip = document.getElementById('history-panel');
+    const pp = document.getElementById('plan-panel');
+    if (hp) { hp.classList.add('active'); }
+    if (hip) { hip.classList.remove('active'); }
+    if (pp) { pp.classList.remove('active'); }
+
+    // 显示聊天区域，隐藏欢迎区域
+    const welcome = document.getElementById('welcome-area');
+    const chat = document.getElementById('chat-area');
+    if (welcome) welcome.style.display = 'none';
+    if (chat) chat.style.display = 'flex';
+
+    const msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.innerHTML = '';
+
+    const question = String(record.fullQuestion || record.question || '');
+    const preview = question.replace(/<[^>]+>/g, '').slice(0, 200);
+    const title = document.getElementById('chat-title');
+    if (title) title.textContent = '📝 ' + (preview || '历史对话');
+
+    state.problemText = question;
+    state.inChat = true;
+
+    // 只渲染最终答案
+    if (record.answer && String(record.answer).trim()) {
+      addChatMessage('assistant', String(record.answer), false);
+    } else {
+      // 如果没有答案，显示提示
+      if (msgs) msgs.innerHTML = '<div class="empty-state"><p>该记录暂无内容</p></div>';
+    }
+
+    scrollChatToBottom();
+  } catch (e) {
+    console.error('[loadHistory]', e);
+    showError('加载历史对话失败: ' + e.message);
+  }
+}
+
+let _planStreamId = null;
+let _planStreamCleanup = null;
 
 async function showPlan() {
   switchPanel('plan'); const c = $('#plan-content'); if (!c) return;
-  c.innerHTML = '<div class="loading-spinner" style="margin:40px auto;"></div>';
-  try { const r = await sendMessageSafe({ type: 'getLearningPlan' }); renderPlan(r?.plan); } catch(_) { c.innerHTML = '<div class="empty-state"><p>失败</p></div>'; }
+  c.innerHTML = '<div id="plan-thinking" style="display:none;"><div class="section-title">🤔 小智正在分析学习情况...</div><div id="plan-thinking-content" style="font-size:12px;color:#666;max-height:150px;overflow:auto;"></div></div><div id="plan-stream-content"></div><div class="loading-spinner" style="margin:20px auto;"></div>';
+
+  // 停止之前的流
+  if (_planStreamCleanup) { _planStreamCleanup(); _planStreamCleanup = null; }
+  _planStreamId = 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+
+  const thinkingEl = document.getElementById('plan-thinking');
+  const thinkingContent = document.getElementById('plan-thinking-content');
+  const streamContent = document.getElementById('plan-stream-content');
+  let localThink = '', localContent = '', doneFinalized = false;
+
+  const onChange = (changes, areaName) => {
+    if (areaName !== 'local') return;
+    const key = 'plan:' + _planStreamId;
+    if (!changes[key]) return;
+    const v = changes[key].newValue || {};
+
+    if (v.thinkDelta && thinkingEl && thinkingContent) {
+      localThink += v.thinkDelta;
+      thinkingEl.style.display = 'block';
+      thinkingContent.textContent = localThink.slice(-500); // 只显示最后500字符
+    }
+    if (v.contentDelta && streamContent) {
+      localContent += v.contentDelta;
+      streamContent.innerHTML = renderMarkdown(localContent);
+      if (thinkingEl) thinkingEl.style.display = 'none'; // 内容开始输出后隐藏思考区
+    }
+    if (v.status === 'done' && !doneFinalized) {
+      doneFinalized = true;
+      cleanup();
+    } else if (v.status === 'error' && !doneFinalized) {
+      doneFinalized = true;
+      cleanup();
+      if (streamContent) streamContent.innerHTML = '<div class="empty-state"><p>❌ ' + esc(v.error || '生成失败') + '</p></div>';
+    }
+  };
+
+  const cleanup = () => {
+    chrome.storage.onChanged.removeListener(onChange);
+    chrome.storage.local.remove('plan:' + _planStreamId).catch(()=>{});
+    _planStreamId = null;
+    _planStreamCleanup = null;
+  };
+  _planStreamCleanup = cleanup;
+
+  chrome.storage.onChanged.addListener(onChange);
+
+  try {
+    const r = await sendMessageSafe({
+      type: 'startPlanStream',
+      streamId: _planStreamId,
+      chatHistory: state.chatHistory,
+      problemText: state.problemText
+    });
+    if (!r || r.error) {
+      cleanup();
+      if (c) c.innerHTML = '<div class="empty-state"><p>❌ 启动失败</p></div>';
+    }
+  } catch(e) {
+    cleanup();
+    if (c) c.innerHTML = '<div class="empty-state"><p>❌ ' + e.message + '</p></div>';
+  }
 }
 
 function renderPlan(plan) {

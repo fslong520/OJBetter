@@ -30,7 +30,7 @@
         <div class="capture-area">
           <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="3"></textarea>
           <button id="start-coach-btn" class="start-btn">✨ 灵光一下，开始思考</button>
-          <button id="translate-btn" class="capture-btn" style="margin-top:6px;">🌐 翻译成中文（只翻译不解释）</button>
+          <button id="translate-btn" class="capture-btn" style="margin-top:6px;">🌐 翻译成中文</button>
         </div>
       </div>
 
@@ -62,6 +62,11 @@
         <h3>提问记录</h3>
       </div>
       <div id="history-list" class="history-list"></div>
+      <div id="history-footer" class="history-footer" style="display:none;">
+        <div id="storage-info" class="storage-info"></div>
+        <button id="export-all-btn" class="export-all-btn">📥 导出全部记录</button>
+        <button id="clear-all-btn" class="export-all-btn" style="background:#ef4444;color:#fff;margin-top:6px;">🗑️ 清除全部记录</button>
+      </div>
     </aside>
 
     <!-- Plan Panel -->
@@ -73,6 +78,8 @@
       <div id="plan-content" class="plan-content"></div>
     </aside>
 
+    <!-- Error -->
+    <div id="error-message" class="error-message" style="display:none;background:#fee;color:#c00;padding:8px;margin:8px;border-radius:4px;font-size:13px;"></div>
     <!-- Loading -->
     <div id="loading-overlay" class="loading-overlay" style="display:none;">
       <div class="loading-spinner"></div>

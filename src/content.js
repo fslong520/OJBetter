@@ -89,17 +89,16 @@
   // ==================== HTML Capture ====================
   function captureProblemHTML() {
     try {
-      const el = detectProblemContent();
-      if (!el) return document.body.innerText.slice(0, 3000);
-      const clone = el.cloneNode(true);
-      // 清洗：删脚本、样式、SVG、按钮等无关元素
-      clone.querySelectorAll('script, style, noscript, svg, .btn-copy, .div-btn-copy, .katex-mathml, nav, footer, header, [role="navigation"], iframe, img').forEach(n => n.remove());
-      let html = clone.innerHTML;
-      // 限制长度
-      if (html.length > 15000) html = html.slice(0, 15000);
-      return html;
+      // 直接从 body 取纯文本，再清洗字符
+      let text = document.body.innerText || '';
+      // 只保留：中文、英文、数字、常见标点、换行、emoji
+      text = text.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s.,;:!?()\[\]{}<>"'_\-+*/=@#$%^&|\\~`\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B50}\u{2B06}\u{2194}\u{21AA}\u{2935}\u{25C0}\u{25B6}\u{23E9}\u{23EA}\u{23EB}\u{23EC}\u{2705}\u{274C}\u{2B55}\u{2753}\u{2757}\u{2795}\u{2796}\u{2797}\u{2716}\u{1F300}-\u{1F9FF}]+/gu, ' ');
+      // 压缩多余空白
+      text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+      if (text.length > 8000) text = text.slice(0, 8000);
+      return text;
     } catch (e) {
-      return document.body.innerText.slice(0, 3000);
+      return (document.body?.innerText || '').slice(0, 3000);
     }
   }
 
