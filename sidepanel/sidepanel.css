@@ -960,3 +960,61 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* 学习计划优化 */
+#plan-content {
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  position: relative;
+}
+#plan-stream-content {
+  padding: 12px 16px;
+  position: relative;
+}
+#plan-stream-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary);
+  color: var(--text-primary);
+}
+#plan-stream-content h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+  color: var(--text-primary);
+}
+#plan-stream-content p {
+  margin: 8px 0;
+  line-height: 1.7;
+}
+#plan-stream-content ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+#plan-stream-content li {
+  margin: 4px 0;
+  line-height: 1.6;
+}
+#plan-stream-content pre {
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+#plan-stream-content code {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+#plan-stream-content blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #666;
+}
+.plan-copy-btn:hover {
+  background: #3A80C9 !important;
+}
