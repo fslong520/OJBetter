@@ -107,7 +107,7 @@ class HintGenerator {
       for (const msg of (chatHistory || [])) {
         messages.push({ role: msg.role, content: String(msg.content).slice(0, 4000) });
       }
-      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.7, 16384);
+      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.3, 32768);
     } catch (e) { onError(e); }
   }
 
@@ -130,7 +130,7 @@ class HintGenerator {
         messages.push({ role: 'user', content: `题目：${cleanText.slice(0, 6000)}` });
       }
 
-      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.7, 32768);
+      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.3, 32768);
     } catch (e) { onError(e); }
   }
 
@@ -191,7 +191,7 @@ class HintGenerator {
     } catch (e) { onError(e); }
   }
 
-  async _streamRequest(config, messages, onThinking, onContent, onDone, onError, temperature = 0.7, maxTokens = 32768, getCancelled) {
+  async _streamRequest(config, messages, onThinking, onContent, onDone, onError, temperature = 0.3, maxTokens = 32768, getCancelled) {
     const url = `${config.baseURL}/chat/completions`;
     const headers = { 'Content-Type': 'application/json' };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;

@@ -150,7 +150,7 @@ ${currentChatText}
     try {
       const response = await fetch(url, {
         method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify({ model: config.model, messages, temperature: 0.7, max_tokens: 32768, stream: true })
+        body: JSON.stringify({ model: config.model, messages, temperature: 0.3, max_tokens: 32768, stream: true })
       });
 
       if (!response.ok) {
