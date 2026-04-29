@@ -1,0 +1,246 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #4F46E5;
+  --primary-light: #6366f1;
+  --bg: #ffffff;
+  --bg-secondary: #f9fafb;
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111827;
+    --bg-secondary: #1f2937;
+    --text: #f9fafb;
+    --text-secondary: #9ca3af;
+    --border: #374151;
+    --danger-bg: #450a0a;
+  }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-secondary);
+  line-height: 1.6;
+}
+
+.settings-container {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+h1 {
+  font-size: 20px;
+  margin-bottom: 24px;
+}
+
+.settings-section {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.settings-section h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.section-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group:last-child { margin-bottom: 0; }
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.form-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.danger-zone { border-color: var(--danger); }
+.danger-zone h2 { color: var(--danger); }
+
+.danger-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.danger-btn:hover { background: var(--danger); color: #fff; }
+.danger-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+}
+
+.save-status { font-size: 13px; color: var(--text-secondary); }
+.save-status.success { color: #10b981; }
+.save-status.error { color: var(--danger); }
+
+.save-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.save-btn:hover { background: var(--primary-light); }
+
+/* Mode Toggle */
+.mode-toggle {
+  display: flex;
+  gap: 10px;
+}
+
+.mode-option {
+  flex: 1;
+  cursor: pointer;
+}
+
+.mode-option input[type="radio"] {
+  display: none;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.mode-option input:checked + .mode-card {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.mode-icon { font-size: 24px; }
+
+.mode-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mode-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.form-hint a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.form-hint a:hover {
+  text-decoration: underline;
+}
+
+/* Select row with refresh */
+.select-row {
+  display: flex;
+  gap: 8px;
+}
+
+.select-row select {
+  flex: 1;
+}
+
+.refresh-btn {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.refresh-btn:hover {
+  background: var(--bg-secondary);
+}
+
+/* Test button */
+.test-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+  font-family: inherit;
+}
+
+.test-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}

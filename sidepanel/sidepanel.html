@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OJBetter</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="logo">🦉</span>
+        <h1>OJBetter</h1>
+      </div>
+      <div class="header-right">
+        <button id="history-btn" class="icon-btn" title="历史记录">📜</button>
+        <button id="plan-btn" class="icon-btn" title="学习计划">📊</button>
+      </div>
+    </header>
+
+    <!-- Hint / Chat Panel -->
+    <main id="hint-panel" class="hint-panel active">
+      <!-- Welcome -->
+      <div id="welcome-area" class="welcome-message">
+        <div class="welcome-icon">🦉</div>
+        <h2>你好！我是小智 👋</h2>
+        <p>我会一步步引导你理解编程题。</p>
+        <div class="capture-area">
+          <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="3"></textarea>
+          <button id="start-coach-btn" class="start-btn">✨ 灵光一下，开始思考</button>
+          <button id="translate-btn" class="capture-btn" style="margin-top:6px;">🌐 翻译成中文（只翻译不解释）</button>
+        </div>
+      </div>
+
+      <!-- Chat Area -->
+      <div id="chat-area" class="chat-area" style="display:none;">
+        <div class="chat-header">
+          <span id="chat-title" class="chat-title">📝 题目讨论</span>
+          <button id="new-coach-btn" class="icon-btn" title="新对话">➕</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="thinking-area" class="thinking-area" style="display:none;">
+          <div class="thinking-header" id="thinking-toggle">
+            <span>🧠 AI 思考中...</span>
+            <span class="thinking-arrow">▾</span>
+          </div>
+          <div id="thinking-content" class="thinking-content"></div>
+        </div>
+        <div class="chat-input-area">
+          <textarea id="chat-input" placeholder="输入你的想法..." rows="2"></textarea>
+          <button id="chat-send-btn" class="send-btn" title="发送">➤</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- History Panel -->
+    <aside id="history-panel" class="history-panel">
+      <div class="panel-header">
+        <button id="history-back-btn" class="back-btn">← 返回</button>
+        <h3>提问记录</h3>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </aside>
+
+    <!-- Plan Panel -->
+    <aside id="plan-panel" class="plan-panel">
+      <div class="panel-header">
+        <button id="plan-back-btn" class="back-btn">← 返回</button>
+        <h3>学习计划</h3>
+      </div>
+      <div id="plan-content" class="plan-content"></div>
+    </aside>
+
+    <!-- Loading -->
+    <div id="loading-overlay" class="loading-overlay" style="display:none;">
+      <div class="loading-spinner"></div>
+      <p id="loading-text">小智正在思考...</p>
+    </div>
+  </div>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

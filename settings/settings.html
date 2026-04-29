@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OJBetter - 设置</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-container">
+    <h1>⚙️ OJBetter - 设置</h1>
+
+    <!-- Mode Toggle -->
+    <section class="settings-section">
+      <h2>模型来源</h2>
+      <div class="mode-toggle">
+        <label class="mode-option" id="mode-free-label">
+          <input type="radio" name="model-mode" value="free" checked>
+          <span class="mode-card">
+            <span class="mode-icon">🆓</span>
+            <span class="mode-title">免费模型</span>
+            <span class="mode-desc">OpenCode Zen 提供</span>
+          </span>
+        </label>
+        <label class="mode-option" id="mode-custom-label">
+          <input type="radio" name="model-mode" value="custom">
+          <span class="mode-card">
+            <span class="mode-icon">🔧</span>
+            <span class="mode-title">自定义模型</span>
+            <span class="mode-desc">自备 API 接口</span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Free Models Section -->
+    <section class="settings-section" id="free-section">
+      <h2>选择免费模型</h2>
+
+      <div class="form-group">
+        <label for="free-model-select">模型</label>
+        <div class="select-row">
+          <select id="free-model-select">
+            <option value="">加载中...</option>
+          </select>
+          <button id="refresh-models-btn" class="refresh-btn" title="从 Zen 重新获取模型列表">🔄</button>
+        </div>
+        <span id="models-status" class="form-hint"></span>
+      </div>
+
+      <div class="form-group">
+        <label for="free-api-key">API Key（可选）</label>
+        <input type="password" id="free-api-key" placeholder="留空即可，免费模型无需 Key">
+      </div>
+
+      <button id="test-model-btn" class="test-btn">🔍 测试当前模型是否可用</button>
+      <span id="test-status" class="form-hint"></span>
+    </section>
+
+    <!-- Custom Model Section -->
+    <section class="settings-section" id="custom-section" style="display:none;">
+      <h2>自定义 API 配置</h2>
+      <p class="section-desc">支持任意 OpenAI 兼容接口</p>
+
+      <div class="form-group">
+        <label for="custom-base-url">API 地址 (Base URL)</label>
+        <input type="text" id="custom-base-url" placeholder="https://api.example.com/v1">
+      </div>
+
+      <div class="form-group">
+        <label for="custom-model">模型名称</label>
+        <input type="text" id="custom-model" placeholder="gpt-4o-mini">
+      </div>
+
+      <div class="form-group">
+        <label for="custom-api-key">API Key</label>
+        <input type="password" id="custom-api-key" placeholder="sk-...">
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>默认提示深度</h2>
+      <div class="form-group">
+        <select id="default-hint-level">
+          <option value="1">💡 提示一下 - 只给思路方向</option>
+          <option value="2" selected>📋 画画图 - 给流程图</option>
+          <option value="3">📝 写伪代码 - 给伪代码</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="settings-section danger-zone">
+      <h2>危险操作</h2>
+      <button id="clear-history-btn" class="danger-btn">🗑️ 清除所有提问记录</button>
+      <p class="danger-hint">此操作不可撤销</p>
+    </section>
+
+    <div class="save-bar">
+      <span id="save-status" class="save-status"></span>
+      <button id="save-btn" class="save-btn">💾 保存设置</button>
+    </div>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OJBetter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <div class="popup-header">
+      <span class="logo">🦉</span>
+      <h2>OJBetter</h2>
+    </div>
+
+    <div class="popup-body">
+      <button id="open-sidepanel-btn" class="primary-btn">💡 打开提示面板</button>
+      <p class="hint">快捷键: <kbd>Ctrl+Shift+H</kbd></p>
+
+      <div class="divider"></div>
+
+      <div class="quick-stats">
+        <div class="stat-item">
+          <span class="stat-value" id="stat-count">--</span>
+          <span class="stat-label">提示次数</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="stat-today">--</span>
+          <span class="stat-label">今日提示</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <button id="settings-btn" class="secondary-btn">⚙️ 设置 API</button>
+      <button id="plan-popup-btn" class="secondary-btn">📊 学习计划</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
