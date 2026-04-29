@@ -432,6 +432,27 @@ function finalizeAssistantEl() {
   if (input) input.value = '';
 }
 
+function addPlanCopyBtn(container, markdownText) {
+  if (container.querySelector('.plan-copy-btn')) return;
+  const btn = document.createElement('button');
+  btn.className = 'plan-copy-btn';
+  btn.title = '复制 Markdown';
+  btn.textContent = '📋 复制 Markdown';
+  btn.style.cssText = 'position:absolute;top:8px;right:8px;padding:4px 8px;font-size:12px;cursor:pointer;background:#4A90D9;color:#fff;border:none;border-radius:4px;z-index:10;';
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(markdownText || '').then(() => {
+      btn.textContent = '✓ 已复制';
+      setTimeout(() => { btn.textContent = '📋 复制 Markdown'; }, 1500);
+    }).catch(() => {
+      btn.textContent = '✗ 失败';
+      setTimeout(() => { btn.textContent = '📋 复制 Markdown'; }, 1500);
+    });
+  });
+  container.style.position = 'relative';
+  container.appendChild(btn);
+}
+
 function addCopyBtn(bubble) {
   if (bubble.querySelector('.copy-md-btn')) return;
   const btn = document.createElement('button');
@@ -451,7 +472,6 @@ function addCopyBtn(bubble) {
   });
   bubble.appendChild(btn);
 }
-
 function safeStr(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string') return v;
@@ -866,18 +886,34 @@ async function showPlan() {
     if (v.thinkDelta && thinkingEl && thinkingContent) {
       localThink += v.thinkDelta;
       thinkingEl.style.display = 'block';
-      thinkingContent.textContent = localThink.slice(-500); // 只显示最后500字符
+      thinkingContent.textContent = localThink.slice(-500);
     }
     if (v.contentDelta && streamContent) {
       localContent += v.contentDelta;
+      if (thinkingEl) thinkingEl.style.display = 'none';
+      // 隐藏加载动画
+      const spinner = c.querySelector('.loading-spinner');
+      if (spinner) spinner.style.display = 'none';
       streamContent.innerHTML = renderMarkdown(localContent);
-      if (thinkingEl) thinkingEl.style.display = 'none'; // 内容开始输出后隐藏思考区
+      // 添加复制按钮
+      if (!streamContent.querySelector('.plan-copy-btn')) {
+        addPlanCopyBtn(streamContent, localContent);
+      }
     }
     if (v.status === 'done' && !doneFinalized) {
       doneFinalized = true;
+      const spinner = c.querySelector('.loading-spinner');
+      if (spinner) spinner.style.display = 'none';
+      // 最终渲染+复制按钮
+      streamContent.innerHTML = renderMarkdown(localContent);
+      if (!streamContent.querySelector('.plan-copy-btn')) {
+        addPlanCopyBtn(streamContent, localContent);
+      }
       cleanup();
     } else if (v.status === 'error' && !doneFinalized) {
       doneFinalized = true;
+      const spinner = c.querySelector('.loading-spinner');
+      if (spinner) spinner.style.display = 'none';
       cleanup();
       if (streamContent) streamContent.innerHTML = '<div class="empty-state"><p>❌ ' + esc(v.error || '生成失败') + '</p></div>';
     }
