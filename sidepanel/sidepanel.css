@@ -1018,3 +1018,127 @@ body {
 .plan-copy-btn:hover {
   background: #3A80C9 !important;
 }
+
+/* Help Panel */
+.help-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.help-panel.active {
+  display: flex;
+}
+
+.help-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.help-section {
+  margin-bottom: 20px;
+}
+
+.help-section h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary);
+}
+
+.help-steps,
+.help-features {
+  list-style: none;
+  padding: 0;
+}
+
+.help-steps li,
+.help-features li {
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.help-steps li {
+  counter-increment: step-counter;
+  border-left: 3px solid var(--primary);
+}
+
+.help-features li strong {
+  color: var(--primary);
+}
+
+.help-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.help-faq {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.help-faq summary {
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  color: var(--text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-faq summary::before {
+  content: '▶';
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+}
+
+.help-faq[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.help-faq summary::-webkit-details-marker,
+.help-faq summary::marker {
+  display: none;
+}
+
+.help-faq summary:hover {
+  background: var(--border);
+}
+
+.help-faq p {
+  padding: 10px 12px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}

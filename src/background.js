@@ -9,8 +9,9 @@ import { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, exportHis
 import { learningPlanGenerator } from './learning-plan/generator.js';
 
 // ==================== Install ====================
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   console.log('OJBetter 已安装');
+  chrome.storage.local.set({ isFirstOpen: true });
 
   chrome.contextMenus.create({
     id: 'coach-coach',
@@ -38,6 +39,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ==================== Action Click ====================
 chrome.action.onClicked.addListener((tab) => {
+  chrome.storage.local.set({ lastOpenedByIcon: true });
   chrome.sidePanel.open({ tabId: tab.id }).catch(() => {
     chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
   });

@@ -11,7 +11,7 @@ let _keepalivePort = null;  // keepalive port，防止 service worker 休眠
 let _currentAssistantEl = null; // 正在流式写入的 AI 消息元素
 
 // ==================== Init ====================
-document.addEventListener('DOMContentLoaded', () => { checkPendingHint(); bindEvents(); });
+document.addEventListener('DOMContentLoaded', () => { checkFirstOpen(); checkPendingHint(); bindEvents(); });
 
 chrome.storage.onChanged.addListener((changes) => {
   const v = changes.pendingHint?.newValue;
@@ -38,19 +38,26 @@ function checkPendingHint() {
 
 // ==================== Events ====================
 function bindEvents() {
-  const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => { captureAndCoach(); });
-  const trans = $('#translate-btn'); if (trans) trans.addEventListener('click', captureAndTranslate);
+  const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => { clearError(); captureAndCoach(); });
+  const trans = $('#translate-btn'); if (trans) trans.addEventListener('click', () => { clearError(); captureAndTranslate(); });
   const send = $('#chat-send-btn'); if (send) send.onclick = sendCoachMessage;
   const input = $('#chat-input'); if (input) {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
     });
   }
+  const probInput = $('#problem-input'); if (probInput) {
+    probInput.addEventListener('input', clearError);
+    probInput.addEventListener('focus', clearError);
+  }
   const nc = $('#new-coach-btn'); if (nc) nc.addEventListener('click', resetToWelcome);
   const hb = $('#history-btn'); if (hb) hb.addEventListener('click', showHistory);
   const pb = $('#plan-btn'); if (pb) pb.addEventListener('click', showPlan);
+  const sb = $('#settings-btn'); if (sb) sb.addEventListener('click', openSettings);
+  const helpBtn = $('#help-btn'); if (helpBtn) helpBtn.addEventListener('click', showHelp);
   const hBack = $('#history-back-btn'); if (hBack) hBack.addEventListener('click', () => switchPanel('chat'));
   const pBack = $('#plan-back-btn'); if (pBack) pBack.addEventListener('click', () => switchPanel('chat'));
+  const helpBack = $('#help-back-btn'); if (helpBack) helpBack.addEventListener('click', () => switchPanel('chat'));
   const toggle = $('#thinking-toggle'); if (toggle) toggle.addEventListener('click', () => {
     const a = $('#thinking-area'); if (a) a.classList.toggle('collapsed');
   });
@@ -559,7 +566,6 @@ function finalizeHintContent() {
   area._rawText = '';
 }
 function showError(message) {
-  alert(String(message));
   const msgs = $('#chat-messages');
   if (msgs && state.inChat) {
     addChatMessage('assitant', '❌ ' + esc(String(message)));
@@ -568,10 +574,18 @@ function showError(message) {
   const hintContent = $('#hint-content');
   if (hintContent) {
     hintContent.innerHTML = `<p style="color:#ef4444;">⚠️ ${esc(String(message))}</p>`;
+    setTimeout(() => { if (hintContent) hintContent.innerHTML = ''; }, 3000);
     return;
   }
   const el = $('#error-message');
-  if (el) { el.textContent = message; el.style.display = 'block'; }
+  if (el) { el.textContent = message; el.style.display = 'block'; setTimeout(() => { if (el) el.style.display = 'none'; }, 3000); }
+}
+
+function clearError() {
+  const el = $('#error-message');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
+  const hintContent = $('#hint-content');
+  if (hintContent) hintContent.innerHTML = '';
 }
 
 function showResultPanel(problemText, level) {
@@ -744,10 +758,11 @@ async function updateStorageInfo() {
 }
 
 function switchPanel(panel) {
-  const hp = $('#hint-panel'), hip = $('#history-panel'), pp = $('#plan-panel');
+  const hp = $('#hint-panel'), hip = $('#history-panel'), pp = $('#plan-panel'), hlp = $('#help-panel');
   if (hp) hp.classList.toggle('active', panel === 'chat' || panel === 'hint');
   if (hip) hip.classList.toggle('active', panel === 'history');
   if (pp) pp.classList.toggle('active', panel === 'plan');
+  if (hlp) hlp.classList.toggle('active', panel === 'help');
 }
 
 async function getHistoryFromStorage() {
@@ -788,7 +803,6 @@ async function showHistory() {
         // 用闭包直接捕获 h，不依赖 dataset
         item.onclick = () => {
           const record = h;
-          alert('点击历史项，记录存在: ' + !!record);
           if (!record) { showError('记录数据无效'); return; }
           // 切换面板
           const hp = document.getElementById('hint-panel');
@@ -815,7 +829,6 @@ async function showHistory() {
 }
 
 function loadHistoryConversation(record) {
-  alert('开始加载历史对话，record存在: ' + !!record);
   if (!record || typeof record !== 'object') {
     showError('历史记录数据无效');
     return;
@@ -962,4 +975,22 @@ function renderPlan(plan) {
         </li>
       `).join('')}</ul>
     </div>`;
+}
+
+// ==================== Help & Settings ====================
+function openSettings() {
+  chrome.tabs.create({ url: chrome.runtime.getURL('settings/settings.html') });
+}
+
+function showHelp() {
+  switchPanel('help');
+}
+
+function checkFirstOpen() {
+  chrome.storage.local.get(['isFirstOpen', 'lastOpenedByIcon'], (result) => {
+    if (result.isFirstOpen || result.lastOpenedByIcon) {
+      chrome.storage.local.remove(['isFirstOpen', 'lastOpenedByIcon']);
+      showHelp();
+    }
+  });
 }
