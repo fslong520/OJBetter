@@ -5,18 +5,26 @@
 
 import { hintGenerator } from './ai/providers.js';
 import { getSettings, saveSettings } from './storage/settings.js';
-import { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, exportHistory, clearHistory } from './storage/history.js';
+import { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, exportHistory, clearHistory, deleteHistoryRecord } from './storage/history.js';
 import { learningPlanGenerator } from './learning-plan/generator.js';
 
 // ==================== Install ====================
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('OJBetter 已安装');
-  chrome.storage.local.set({ isFirstOpen: true });
+  // 初始化帮助标记：未看过帮助
+  chrome.storage.local.get(['hasSeenHelp'], (result) => {
+    if (result.hasSeenHelp === undefined) {
+      chrome.storage.local.set({ hasSeenHelp: false });
+    }
+  });
 
-  chrome.contextMenus.create({
-    id: 'coach-coach',
-    title: '✨ 灵光一下，小智帮你',
-    contexts: ['selection']
+  // 先清除旧菜单，防止重复 id 报错
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'coach-coach',
+      title: '✨ 灵光一下，小智帮你',
+      contexts: ['selection']
+    });
   });
 });
 
@@ -39,7 +47,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // ==================== Action Click ====================
 chrome.action.onClicked.addListener((tab) => {
-  chrome.storage.local.set({ lastOpenedByIcon: true });
+  // 移除 lastOpenedByIcon 标记，避免每次点击都弹帮助
   chrome.sidePanel.open({ tabId: tab.id }).catch(() => {
     chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
   });
@@ -268,6 +276,9 @@ async function handleMessage(message, sender) {
     case 'clearHistory':
       await clearHistory();
       return { success: true };
+    case 'deleteHistoryRecord':
+      const deleted = await deleteHistoryRecord(message.recordId);
+      return { success: deleted };
     case 'getLearningPlan':
       // 流式学习计划现在改由 startPlanStream 处理，这里保留降级逻辑
       return { plan: await learningPlanGenerator.generatePlanFallback(await learningPlanGenerator.analyzeHistory()) };

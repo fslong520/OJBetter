@@ -11,6 +11,44 @@ const KATEX_NOTE = `\n\n【⚠️渲染提示】题目内容中可能包含因 L
 // 通用后备提示词（避免异步加载问题）
 const COACH_PROMPT = buildCoachPrompt(DEFAULT_PERSONA_KEY) + KATEX_NOTE;
 
+// ==================== 代码检测：判断学生是否提交了代码 ====================
+function isCodeSubmission(text) {
+  if (!text || typeof text !== 'string') return false;
+  const codePatterns = [
+    /#include\s*<\w+>/,     // C++ include
+    /int\s+main\s*\(/,      // C++ main 函数
+    /cout\s*<</,             // C++ 输出
+    /cin\s*>>/,              // C++ 输入
+    /scanf\s*\(/,            // C 输入
+    /printf\s*\(/,           // C 输出
+    /def\s+\w+\s*\(/,       // Python 函数
+    /import\s+\w+/,          // Python import
+    /function\s+\w+\s*\(/,  // JS 函数
+    /console\.log\s*\(/,     // JS 输出
+    /{[\s\S]*}/,            // 代码块（含大括号）
+    /^\s*[\w]+\s+[\w]+\s*[;=]/m  // 变量定义（简单判断）
+  ];
+  return codePatterns.some(re => re.test(text));
+}
+
+// ==================== 调试模式专用提示词 ====================
+const DEBUG_COACH_PROMPT = `你是"小智"，一位耐心温和的信奥赛教练，专门帮学生调试代码。
+
+核心规则（必须遵守）：
+1. **情绪先行**：每轮第一句话必须先鼓励！结合学生代码具体表现夸奖，如："看得出来你认真写了代码！👍""这个判断框架搭得很清楚，不错！""你把输入部分都写好了，很棒~"
+2. **禁止问题意**：绝不许问"先说说看这道题在问什么？""说说你的思路"等话，学生已经写了代码！
+3. **引导自查**：用提问代替直指错误，如："你试试输入【1 2 3】，你觉得代码会输出什么？""看看判断条件的地方，有没有漏掉【三个数相等】的情况？"
+4. **鼓励具体化**：每次学生修改后，都要肯定进步："这里改对了！""比刚才好多了！"
+5. **禁止给代码**：绝不给出修改后的完整代码，只给方向性提示。
+6. **只答代码相关问题**：不聊无关话题。
+
+调试引导示例：
+✅ 正确："写得不错！👍 你试试输入三个数相等的情况，看看输出是什么？"
+✅ 正确："这个思路挺清晰的~ 看看判断条件里，有没有考虑h变量的情况？"
+❌ 错误："你这代码错了。""先说说看这道题在问什么？""不对，重来。"
+
+${KATEX_NOTE}`;
+
 const HINT_PROMPTS = {
   1: `你是"小智"，一位耐心亲切的信奥赛教练（面向8-16岁学生）。
 
@@ -80,14 +118,24 @@ const HINT_PROMPTS = {
 class HintGenerator {
   async getConfig() {
     const settings = await getSettings();
+    // 基础配置（AI 参数）
+    const baseConfig = {
+      enableThinking: settings.enableThinking !== false, // 默认开启
+      temperature: settings.temperature || 0.3,
+      maxTokens: settings.maxTokens || 32768,
+      topP: settings.topP || 1.0,
+    };
+
     if (settings.modelMode === 'custom') {
       return {
+        ...baseConfig,
         baseURL: settings.customBaseURL || 'https://api.example.com/v1',
         model: settings.customModel || 'gpt-4o-mini',
         apiKey: settings.customApiKey || ''
       };
     }
     return {
+      ...baseConfig,
       baseURL: ZEN_BASE_URL,
       model: settings.freeModel || 'big-pickle',
       apiKey: settings.zenApiKey || ''
@@ -99,18 +147,38 @@ class HintGenerator {
     try {
       const config = await this.getConfig();
       const settings = await getSettings();
-      const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
-      const prompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
-      // 清理 HTML，只保留纯文本，避免干扰 AI 上下文
+      
+      // 检测学生最新消息是否含代码，决定使用哪种提示词
+      const latestStudentMsg = [...(chatHistory || [])].reverse().find(m => m.role === 'user');
+      const hasCode = latestStudentMsg ? isCodeSubmission(latestStudentMsg.content) : false;
+      
+      let systemPrompt;
+      if (hasCode) {
+        // 提交代码：用调试专用提示词，禁止问题意
+        systemPrompt = DEBUG_COACH_PROMPT;
+      } else {
+        // 未提交代码：用原教练策略
+        const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
+        systemPrompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
+      }
+      
+      // 清理 HTML，只保留纯文本
       const cleanText = String(problemText).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
       const messages = [
-        { role: 'system', content: prompt },
-        { role: 'user', content: `## 题目\n${cleanText.slice(0, 4000)}` }
+        { role: 'system', content: systemPrompt }
       ];
+      
+      // 若有题目，先放题目（仅首次或未提交代码时）
+      if (!hasCode && cleanText) {
+        messages.push({ role: 'user', content: `## 题目\n${cleanText.slice(0, 4000)}` });
+      }
+      
+      // 加入历史对话
       for (const msg of (chatHistory || [])) {
         messages.push({ role: msg.role, content: String(msg.content).slice(0, 4000) });
       }
-      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.3, 32768);
+      
+      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError);
     } catch (e) { onError(e); }
   }
 
@@ -133,7 +201,7 @@ class HintGenerator {
         messages.push({ role: 'user', content: `题目：${cleanText.slice(0, 6000)}` });
       }
 
-      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError, 0.3, 32768);
+      await this._streamRequest(config, messages, onThinking, onContent, onDone, onError);
     } catch (e) { onError(e); }
   }
 
@@ -190,21 +258,34 @@ class HintGenerator {
       const wrappedOnDone = (full) => { if (!cancelled) onDone(cleanHTML(full)); };
       const wrappedOnError = (e) => { if (!cancelled) onError(e); };
 
-      await this._streamRequest(config, messages, onThinking, wrappedOnContent, wrappedOnDone, wrappedOnError, 0.1, 32768, () => cancelled);
+      await this._streamRequest(config, messages, onThinking, wrappedOnContent, wrappedOnDone, wrappedOnError, () => cancelled);
     } catch (e) { onError(e); }
   }
 
-  async _streamRequest(config, messages, onThinking, onContent, onDone, onError, temperature = 0.3, maxTokens = 32768, getCancelled) {
+  async _streamRequest(config, messages, onThinking, onContent, onDone, onError, getCancelled) {
     const url = `${config.baseURL}/chat/completions`;
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = { 
+      'Content-Type': 'application/json',
+      'User-Agent': 'OJBetter/1.1.1 (Chrome Extension)'
+    };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
+
+    // 使用配置中的参数，而非硬编码
+    const body = {
+      model: config.model,
+      messages,
+      stream: true,
+      temperature: config.temperature || 0.3,
+      max_tokens: config.maxTokens || 32768
+    };
+    if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
 
     const controller = new AbortController();
     const fetchTimeout = setTimeout(() => controller.abort(), 1800000); // 30 分钟，兼容长思考模型
     try {
       const response = await fetch(url, {
         method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify({ model: config.model, messages, temperature, max_tokens: maxTokens, stream: true })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -220,6 +301,10 @@ class HintGenerator {
           throw new Error('API 服务触发了人机验证，请稍后重试或使用自定义API');
         }
         throw new Error('API 返回了非预期响应格式');
+      }
+
+      if (!response.body) {
+        throw new Error('API 响应体为空，请检查网络或重试');
       }
 
       const reader = response.body.getReader();
@@ -249,7 +334,10 @@ class HintGenerator {
           try {
             const j = JSON.parse(d); const delta = j.choices?.[0]?.delta;
             if (!delta) continue;
-            if (delta.reasoning_content || delta.reasoning) onThinking(delta.reasoning_content || delta.reasoning);
+            // 根据配置决定是否处理思考过程
+            if (config.enableThinking && (delta.reasoning_content || delta.reasoning)) {
+              onThinking(delta.reasoning_content || delta.reasoning);
+            }
             if (delta.content) { full += delta.content; onContent(delta.content); }
           } catch (_) {}
         }
@@ -257,9 +345,19 @@ class HintGenerator {
       clearTimeout(readTimeout);
       onDone(full);
     } catch (e) {
+      console.error('[OJBetter Fetch Error]', {
+        url,
+        errorName: e.name,
+        errorMessage: e.message,
+        errorStack: e.stack
+      });
       if (e.name === 'AbortError') onError(new Error('请求超时，请重试'));
       else if (e.message?.includes('CORS') || e.message?.includes('address space') || e.message?.includes('blocked')) {
         onError(new Error('网络策略拦截，请打开设置切换到自定义API'));
+      }
+      else if (e.message === 'Failed to fetch') {
+        // 可能是DNS、SSL、服务器宕机等原因
+        onError(new Error('无法连接至免费模型服务器（opencode.ai）。可能原因：1) 服务器维护中；2) 网络连接问题；3) 服务商已停止免费服务。请尝试：设置 → 切换到自定义API'));
       }
       else onError(e);
     } finally {

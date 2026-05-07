@@ -10,109 +10,216 @@
   <div class="settings-container">
     <h1>⚙️ OJBetter - 设置</h1>
 
-    <!-- Mode Toggle -->
-    <section class="settings-section">
-      <h2>模型来源</h2>
-      <div class="mode-toggle">
-        <label class="mode-option" id="mode-free-label">
-          <input type="radio" name="model-mode" value="free" checked>
-          <span class="mode-card">
-            <span class="mode-icon">🆓</span>
-            <span class="mode-title">免费模型</span>
-            <span class="mode-desc">OpenCode Zen 提供</span>
-          </span>
-        </label>
-        <label class="mode-option" id="mode-custom-label">
-          <input type="radio" name="model-mode" value="custom">
-          <span class="mode-card">
-            <span class="mode-icon">🔧</span>
-            <span class="mode-title">自定义模型</span>
-            <span class="mode-desc">自备 API 接口</span>
-          </span>
-        </label>
+    <!-- 标签导航 -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="model">🔧 模型配置</button>
+      <button class="tab-btn" data-tab="ai-params">🤖 AI 参数</button>
+      <button class="tab-btn" data-tab="coach">🎓 教练设置</button>
+      <button class="tab-btn" data-tab="advanced">⚠️ 高级操作</button>
+    </div>
+
+    <!-- 标签内容区 -->
+    <div class="tab-content">
+
+      <!-- 标签1：模型配置 -->
+      <div class="tab-pane active" id="tab-model">
+        <!-- Mode Toggle -->
+        <section class="settings-section">
+          <h2>模型来源</h2>
+          <div class="mode-toggle">
+            <label class="mode-option" id="mode-free-label">
+              <input type="radio" name="model-mode" value="free" checked>
+              <span class="mode-card">
+                <span class="mode-icon">🆓</span>
+                <span class="mode-title">免费模型</span>
+                <span class="mode-desc">OpenCode Zen 提供</span>
+              </span>
+            </label>
+            <label class="mode-option" id="mode-custom-label">
+              <input type="radio" name="model-mode" value="custom">
+              <span class="mode-card">
+                <span class="mode-icon">🔧</span>
+                <span class="mode-title">自定义模型</span>
+                <span class="mode-desc">自备 API 接口</span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Free Models Section -->
+        <section class="settings-section" id="free-section">
+          <h2>选择免费模型</h2>
+          <div class="form-group">
+            <label for="free-model-select">模型</label>
+            <div class="select-row">
+              <select id="free-model-select">
+                <option value="">加载中...</option>
+              </select>
+              <button id="refresh-models-btn" class="refresh-btn" title="从 Zen 重新获取模型列表">🔄</button>
+            </div>
+            <span id="models-status" class="form-hint"></span>
+          </div>
+          <div class="form-group">
+            <label for="free-api-key">API Key（可选）</label>
+            <input type="password" id="free-api-key" placeholder="留空即可，免费模型无需 Key">
+          </div>
+          <button id="test-model-btn" class="test-btn">🔍 测试当前模型是否可用</button>
+          <span id="test-status" class="form-hint"></span>
+        </section>
+
+        <!-- Custom Model Section -->
+        <section class="settings-section" id="custom-section" style="display:none;">
+          <h2>自定义 API 配置</h2>
+          <p class="section-desc">支持任意 OpenAI 兼容接口</p>
+          <div class="form-group">
+            <label for="custom-base-url">API 地址 (Base URL)</label>
+            <input type="text" id="custom-base-url" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="form-group">
+            <label for="custom-model">模型名称</label>
+            <input type="text" id="custom-model" placeholder="gpt-4o-mini">
+          </div>
+          <div class="form-group">
+            <label for="custom-api-key">API Key</label>
+            <input type="password" id="custom-api-key" placeholder="sk-...">
+          </div>
+          <button id="test-custom-btn" class="test-btn">🔍 测试自定义模型</button>
+          <span id="test-custom-status" class="form-hint"></span>
+        </section>
       </div>
-    </section>
 
-    <!-- Free Models Section -->
-    <section class="settings-section" id="free-section">
-      <h2>选择免费模型</h2>
+      <!-- 标签2：AI 参数 -->
+      <div class="tab-pane" id="tab-ai-params">
+        <section class="settings-section">
+          <h2>🧠 思考模式</h2>
+          <div class="toggle-row">
+            <span class="toggle-label-text">开启思考过程（Thinking/Reasoning）</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="enable-thinking" checked class="toggle-input">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="form-hint">部分模型支持思考过程展示，开启后可见 AI 的推理步骤（如 o1、big-pickle 等）</p>
+        </section>
 
-      <div class="form-group">
-        <label for="free-model-select">模型</label>
-        <div class="select-row">
-          <select id="free-model-select">
-            <option value="">加载中...</option>
-          </select>
-          <button id="refresh-models-btn" class="refresh-btn" title="从 Zen 重新获取模型列表">🔄</button>
-        </div>
-        <span id="models-status" class="form-hint"></span>
+        <section class="settings-section">
+          <h2>🌡️ 温度参数 (Temperature)</h2>
+          <div class="form-group">
+            <label for="temperature">温度值：<span id="temp-value">0.3</span></label>
+            <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.3">
+            <div class="range-labels">
+              <span>精确 (0)</span>
+              <span>平衡 (0.5)</span>
+              <span>随机 (1)</span>
+            </div>
+          </div>
+          <div class="form-hint">
+            温度越低，回答越确定、越保守；温度越高，回答越随机、越有创意。<br>
+            建议：刷题引导用 0.3，创意写作可用 0.7+。
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>📏 最大输出长度</h2>
+          <div class="form-group">
+            <label for="max-tokens">最大 Token 数</label>
+            <input type="number" id="max-tokens" min="1024" max="131072" step="1024" value="32768">
+            <p class="form-hint">控制 AI 回复的最大长度。思考模型（如 o1）可能需要更长输出（32768+）。</p>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>🎲 Top-P 采样</h2>
+          <div class="form-group">
+            <label for="top-p">Top-P 值：<span id="top-p-value">1.0</span></label>
+            <input type="range" id="top-p" min="0.1" max="1" step="0.1" value="1.0">
+            <div class="range-labels">
+              <span>保守 (0.1)</span>
+              <span>平衡 (0.5)</span>
+              <span>全部 (1.0)</span>
+            </div>
+          </div>
+          <div class="form-hint">
+            控制词元选择范围。值越小，可选词元越少，输出越集中；值越大，输出越多样。<br>
+            一般保持 1.0 即可，除非需要精确控制。
+          </div>
+        </section>
       </div>
 
-      <div class="form-group">
-        <label for="free-api-key">API Key（可选）</label>
-        <input type="password" id="free-api-key" placeholder="留空即可，免费模型无需 Key">
+      <!-- 标签3：教练设置 -->
+      <div class="tab-pane" id="tab-coach">
+        <section class="settings-section">
+          <h2>🎭 教练风格</h2>
+          <div class="form-group">
+            <p class="section-desc">选择 AI 教练的性格和语言风格</p>
+            <select id="coach-style-select">
+              <option value="default" selected>🧑‍🏫 专业温和型（默认）</option>
+              <option value="encouraging">🌟 热情鼓励型</option>
+              <option value="humorous">😄 幽默风趣型</option>
+              <option value="sarcastic">😏 毒舌严师型</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>💡 默认提示深度</h2>
+          <div class="form-group">
+            <p class="section-desc">点击"灵光一下"时，默认给出的提示深度</p>
+            <select id="default-hint-level">
+              <option value="1">💡 提示一下 - 只给思路方向</option>
+              <option value="2" selected>📋 画画图 - 给流程图</option>
+              <option value="3">📝 写伪代码 - 给伪代码</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>🛠️ 调试模式设置</h2>
+          <div class="toggle-row">
+            <span class="toggle-label-text">自动检测代码提交（推荐开启）</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="auto-detect-code" checked class="toggle-input">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="form-hint">开启后，孩子贴出代码时，AI 自动进入调试模式，不再问题意。</p>
+        </section>
       </div>
 
-      <button id="test-model-btn" class="test-btn">🔍 测试当前模型是否可用</button>
-      <span id="test-status" class="form-hint"></span>
-    </section>
+      <!-- 标签4：高级操作 -->
+      <div class="tab-pane" id="tab-advanced">
+        <section class="settings-section danger-zone">
+          <h2>🗑️ 清除数据</h2>
+          <button id="clear-history-btn" class="danger-btn">🗑️ 清除所有提问记录</button>
+          <p class="danger-hint">此操作不可撤销，将删除所有历史对话记录。</p>
+        </section>
 
-    <!-- Custom Model Section -->
-    <section class="settings-section" id="custom-section" style="display:none;">
-      <h2>自定义 API 配置</h2>
-      <p class="section-desc">支持任意 OpenAI 兼容接口</p>
+        <section class="settings-section">
+          <h2>📦 存储信息</h2>
+          <div id="storage-info" class="storage-info">
+            <p>加载中...</p>
+          </div>
+          <button id="refresh-storage-btn" class="test-btn">🔄 刷新存储信息</button>
+        </section>
 
-      <div class="form-group">
-        <label for="custom-base-url">API 地址 (Base URL)</label>
-        <input type="text" id="custom-base-url" placeholder="https://api.example.com/v1">
+        <section class="settings-section">
+          <h2>ℹ️ 关于</h2>
+          <div class="about-info">
+            <p><strong>OJBetter</strong> v1.1.1</p>
+            <p>渐进式 AI 编程助教</p>
+            <p class="form-hint">引导孩子独立思考，用流程图和伪代码启发编程思维。</p>
+          </div>
+        </section>
       </div>
 
-      <div class="form-group">
-        <label for="custom-model">模型名称</label>
-        <input type="text" id="custom-model" placeholder="gpt-4o-mini">
-      </div>
-
-      <div class="form-group">
-        <label for="custom-api-key">API Key</label>
-        <input type="password" id="custom-api-key" placeholder="sk-...">
-      </div>
-    </section>
-
-    <section class="settings-section">
-      <h2>教练风格</h2>
-      <div class="form-group">
-        <p class="section-desc">选择 AI 教练的性格和语言风格</p>
-        <select id="coach-style-select">
-          <option value="default" selected>🧑‍🏫 专业温和型（默认）</option>
-          <option value="encouraging">🌟 热情鼓励型</option>
-          <option value="humorous">😄 幽默风趣型</option>
-          <option value="sarcastic">😏 毒舌严师型</option>
-        </select>
-      </div>
-    </section>
-
-    <section class="settings-section">
-      <h2>默认提示深度</h2>
-      <div class="form-group">
-        <select id="default-hint-level">
-          <option value="1">💡 提示一下 - 只给思路方向</option>
-          <option value="2" selected>📋 画画图 - 给流程图</option>
-          <option value="3">📝 写伪代码 - 给伪代码</option>
-        </select>
-      </div>
-    </section>
-
-    <section class="settings-section danger-zone">
-      <h2>危险操作</h2>
-      <button id="clear-history-btn" class="danger-btn">🗑️ 清除所有提问记录</button>
-      <p class="danger-hint">此操作不可撤销</p>
-    </section>
+    </div><!-- end tab-content -->
 
     <div class="save-bar">
       <span id="save-status" class="save-status"></span>
       <button id="save-btn" class="save-btn">💾 保存设置</button>
     </div>
   </div>
+
   <script src="settings.js"></script>
 </body>
 </html>

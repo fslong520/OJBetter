@@ -1,52 +1,5 @@
 /* AI Tutor - Content Script Styles */
 
-#ai-tutor-floating-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 99999;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-#ai-tutor-floating-btn:hover {
-  transform: scale(1.1);
-}
-
-.ai-tutor-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: box-shadow 0.2s;
-}
-
-#ai-tutor-floating-btn:hover .ai-tutor-icon {
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
-}
-
-.ai-tutor-tooltip {
-  position: absolute;
-  bottom: 60px;
-  right: 0;
-  background: #1f2937;
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-}
-
-#ai-tutor-floating-btn:hover .ai-tutor-tooltip {
-  opacity: 1;
-}
-
 /* Hint buttons on problem pages */
 .ai-tutor-hint-buttons {
   display: flex;

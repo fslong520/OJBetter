@@ -146,7 +146,27 @@ async function migrateOldData() {
 // 启动时自动迁移
 migrateOldData().catch(() => {});
 
-// ==================== 导出 ====================
+  // ==================== 单个记录删除 ====================
+  async function deleteHistoryRecord(recordId) {
+    const keys = await getAllKeys();
+    for (const key of keys) {
+      const data = await chrome.storage.local.get(key);
+      let list = data[key] || [];
+      const initialLength = list.length;
+      list = list.filter(r => r.id !== recordId);
+      if (list.length < initialLength) {
+        if (list.length === 0) {
+          await chrome.storage.local.remove(key); // 当日无记录则删key
+        } else {
+          await chrome.storage.local.set({ [key]: list });
+        }
+        return true;
+      }
+    }
+    return false; // 未找到记录
+  }
+
+  // ==================== 导出 ====================
 async function exportHistory(dateFilter) {
   let records;
   if (dateFilter) {
@@ -213,4 +233,4 @@ function detectLanguage(question) {
   return '未知';
 }
 
-export { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, clearHistory, exportHistory, extractTopic, detectLanguage };
+export { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, clearHistory, exportHistory, deleteHistoryRecord, extractTopic, detectLanguage };

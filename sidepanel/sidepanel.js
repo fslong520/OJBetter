@@ -57,7 +57,11 @@ function bindEvents() {
   const helpBtn = $('#help-btn'); if (helpBtn) helpBtn.addEventListener('click', showHelp);
   const hBack = $('#history-back-btn'); if (hBack) hBack.addEventListener('click', () => switchPanel('chat'));
   const pBack = $('#plan-back-btn'); if (pBack) pBack.addEventListener('click', () => switchPanel('chat'));
-  const helpBack = $('#help-back-btn'); if (helpBack) helpBack.addEventListener('click', () => switchPanel('chat'));
+  const helpBack = $('#help-back-btn'); if (helpBack) helpBack.addEventListener('click', () => {
+    // 关闭帮助面板时标记为已看
+    chrome.storage.local.set({ hasSeenHelp: true });
+    switchPanel('chat');
+  });
   const toggle = $('#thinking-toggle'); if (toggle) toggle.addEventListener('click', () => {
     const a = $('#thinking-area'); if (a) a.classList.toggle('collapsed');
   });
@@ -759,10 +763,15 @@ async function updateStorageInfo() {
 
 function switchPanel(panel) {
   const hp = $('#hint-panel'), hip = $('#history-panel'), pp = $('#plan-panel'), hlp = $('#help-panel');
+  const wasHelpActive = hlp?.classList.contains('active');
   if (hp) hp.classList.toggle('active', panel === 'chat' || panel === 'hint');
   if (hip) hip.classList.toggle('active', panel === 'history');
   if (pp) pp.classList.toggle('active', panel === 'plan');
   if (hlp) hlp.classList.toggle('active', panel === 'help');
+  // 从帮助面板切走时，标记为已看
+  if (wasHelpActive && panel !== 'help') {
+    chrome.storage.local.set({ hasSeenHelp: true });
+  }
 }
 
 async function getHistoryFromStorage() {
@@ -799,9 +808,18 @@ async function showHistory() {
         const q = h.question || h.fullQuestion || '未知题目';
         const item = document.createElement('div');
         item.className = 'history-item';
-        item.innerHTML = `<div class="history-question">${esc(String(q).slice(0,80))}</div><div class="history-meta"><span class="history-topic">${esc(h.topic||'综合')}</span><span>${new Date(h.timestamp).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span></div>`;
+        item.innerHTML = `
+          <div class="history-question">${esc(String(q).slice(0,80))}</div>
+          <div class="history-meta">
+            <span class="history-topic">${esc(h.topic||'综合')}</span>
+            <span>${new Date(h.timestamp).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>
+            <span class="history-delete-btn" data-record-id="${h.id}" title="删除此记录">🗑️</span>
+          </div>
+        `;
         // 用闭包直接捕获 h，不依赖 dataset
-        item.onclick = () => {
+        item.onclick = (e) => {
+          // 点删除按钮不触发加载会话
+          if (e.target.classList.contains('history-delete-btn')) return;
           const record = h;
           if (!record) { showError('记录数据无效'); return; }
           // 切换面板
@@ -818,6 +836,19 @@ async function showHistory() {
             if (msgs) msgs.innerHTML = '<div class="empty-state"><p>正在加载历史对话...</p></div>';
             loadHistoryConversation(record);
         };
+        // 删除按钮事件
+        item.querySelector('.history-delete-btn').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('确定要删除这条记录吗？此操作不可恢复。')) return;
+          const recordId = e.currentTarget.dataset.recordId;
+          const r = await sendMessageSafe({ type: 'deleteHistoryRecord', recordId });
+          if (r?.success) {
+            alert('删除成功');
+            showHistory(); // 刷新历史列表
+          } else {
+            alert('删除失败：' + (r?.error || '未找到该记录'));
+          }
+        });
         dayDiv.appendChild(item);
       });
 
@@ -837,10 +868,8 @@ function loadHistoryConversation(record) {
     // 直接控制面板显示，不依赖 switchPanel
     const hp = document.getElementById('hint-panel');
     const hip = document.getElementById('history-panel');
-    const pp = document.getElementById('plan-panel');
     if (hp) { hp.classList.add('active'); }
     if (hip) { hip.classList.remove('active'); }
-    if (pp) { pp.classList.remove('active'); }
 
     // 显示聊天区域，隐藏欢迎区域
     const welcome = document.getElementById('welcome-area');
@@ -858,12 +887,19 @@ function loadHistoryConversation(record) {
 
     state.problemText = question;
     state.inChat = true;
+    // 恢复历史聊天记录到状态，以便接续对话
+    state.chatHistory = record.chatHistory ? [...record.chatHistory] : [];
 
-    // 只渲染最终答案
-    if (record.answer && String(record.answer).trim()) {
+    // 渲染所有历史聊天消息
+    if (state.chatHistory.length > 0) {
+      state.chatHistory.forEach(msg => {
+        addChatMessage(msg.role, msg.content, false);
+      });
+    } else if (record.answer && String(record.answer).trim()) {
+      // 兼容旧记录（无chatHistory字段，只有answer）
       addChatMessage('assistant', String(record.answer), false);
+      state.chatHistory.push({ role: 'assistant', content: String(record.answer) });
     } else {
-      // 如果没有答案，显示提示
       if (msgs) msgs.innerHTML = '<div class="empty-state"><p>该记录暂无内容</p></div>';
     }
 
@@ -872,7 +908,7 @@ function loadHistoryConversation(record) {
     console.error('[loadHistory]', e);
     showError('加载历史对话失败: ' + e.message);
   }
-}
+  }
 
 let _planStreamId = null;
 let _planStreamCleanup = null;
@@ -987,9 +1023,11 @@ function showHelp() {
 }
 
 function checkFirstOpen() {
-  chrome.storage.local.get(['isFirstOpen', 'lastOpenedByIcon'], (result) => {
-    if (result.isFirstOpen || result.lastOpenedByIcon) {
-      chrome.storage.local.remove(['isFirstOpen', 'lastOpenedByIcon']);
+  // 清理旧版标记，避免干扰
+  chrome.storage.local.remove(['isFirstOpen', 'lastOpenedByIcon']);
+  chrome.storage.local.get(['hasSeenHelp'], (result) => {
+    // 未看过帮助（undefined 或 false 都算未看）
+    if (result.hasSeenHelp !== true) {
       showHelp();
     }
   });

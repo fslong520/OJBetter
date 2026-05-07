@@ -6,47 +6,59 @@
 (function () {
   'use strict';
 
-  let floatingBtn = null;
-
-  // ==================== Floating Button ====================
-  function createFloatingButton() {
-    if (floatingBtn) return;
-    floatingBtn = document.createElement('div');
-    floatingBtn.id = 'ai-tutor-floating-btn';
-    floatingBtn.innerHTML = `
-      <div class="ai-tutor-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="10" fill="#4F46E5" stroke="#fff" stroke-width="1.5"/>
-          <text x="12" y="16" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold" font-family="sans-serif">?</text>
-        </svg>
-      </div>
-      <div class="ai-tutor-tooltip">问我编程问题</div>
-    `;
-    floatingBtn.addEventListener('click', () => {
-      const html = captureProblemHTML();
-      chrome.storage.local.set({ pendingHint: { problemText: html || window.getSelection()?.toString()?.trim() || '', level: 0, isHTML: true } });
-      chrome.runtime.sendMessage({ type: 'openSidePanel' });
-    });
-    document.body.appendChild(floatingBtn);
-  }
+  // ==================== OJ 白名单（默认全量收录国内外常见OJ/赛站） ====================
+  const OJ_WHITELIST = [
+    // 国内OJ/竞赛站
+    'luogu.com.cn',    // 洛谷
+    'acwing.com',       // AcWing
+    'nowcoder.com',     // 牛客网
+    'leetcode.cn',      // 力扣中国
+    'poj.org',         // 北大POJ
+    'hdu.edu.cn',      // 杭电HDU OJ
+    'vjudge.net',      // Virtual Judge
+    'jisuanke.com',    // 计蒜客
+    'codeforces.cn',   // Codeforces中国
+    'atcoder.jp',      // AtCoder
+    'usaco.org',       // USACO
+    'openjudge.cn',    // OpenJudge
+    'zoj.pintia.cn',   // 浙大ZOJ
+    'bzoj.org',        // 大视野
+    'loj.ac',          // LibreOJ
+    'uoj.ac',          // Universal OJ
+    'contesthunter.org', // 猎人网
+    '51nod.com',       // 51Nod
+    'acm.sdut.edu.cn', // SDUTOJ
+    'codevs.cn',       // CodeVS
+    'icpc.cn',         // ICPC中国
+    'ioinformatics.org', // 国际信息学奥林匹克
+    // 国外OJ/竞赛站
+    'codeforces.com',
+    'codechef.com',
+    'codewars.com',
+    'spoj.com',
+    'topcoder.com',
+    'hackerrank.com',
+    'cses.fi',
+    'lightoj.com',
+    'e-olymp.com',
+    'timus.ru',
+    'acmp.ru',
+    'coj.uci.cu',
+    // 常见编程学习站
+    'lintcode.com',
+    'programiz.com',
+    'geeksforgeeks.org',
+    'runoob.com',
+    'leetcode.com',    // 力扣国际版
+    'exercism.org',
+    'codecademy.com'
+  ];
 
   // ==================== Problem Detection ====================
   function isProblemPage() {
     const url = location.href.toLowerCase();
-    const knownSites = [
-      'leetcode', 'luogu', 'acwing', 'nowcoder', 'codeforces',
-      'atcoder', 'hackerrank', 'codewars', 'spoj', 'usaco',
-      'programiz', 'geeksforgeeks', 'w3schools', 'runoob',
-      'lintcode', 'lightoj', 'cses', 'vijos', '51nod',
-      '.edu', 'acm.', 'oj.', 'judge', 'contest', 'problem',
-      'coding', 'tutorial', 'learn'
-    ];
-    for (const kw of knownSites) { if (url.includes(kw)) return true; }
-    const title = document.title.toLowerCase();
-    for (const kw of ['题解','刷题','算法','编程','代码','题目','problem','solution','code']) {
-      if (title.includes(kw)) return true;
-    }
-    return false;
+    // 仅白名单内网站生效
+    return OJ_WHITELIST.some(site => url.includes(site.toLowerCase()));
   }
 
   function detectProblemContent() {
@@ -105,10 +117,10 @@
   // ==================== Init ====================
   function init() {
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(() => { createFloatingButton(); addHintButtons(); }, 1500);
+      setTimeout(() => { addHintButtons(); }, 1500);
     } else {
       document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => { createFloatingButton(); addHintButtons(); }, 1500);
+        setTimeout(() => { addHintButtons(); }, 1500);
       });
     }
     const observer = new MutationObserver(() => { addHintButtons(); });

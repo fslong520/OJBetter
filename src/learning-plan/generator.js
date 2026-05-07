@@ -125,14 +125,24 @@ ${currentChatText}
 
   async getConfig() {
     const settings = await getSettings();
+    // 基础配置（AI 参数）
+    const baseConfig = {
+      enableThinking: settings.enableThinking !== false, // 默认开启
+      temperature: settings.temperature || 0.3,
+      maxTokens: settings.maxTokens || 32768,
+      topP: settings.topP || 1.0,
+    };
+
     if (settings.modelMode === 'custom') {
       return {
+        ...baseConfig,
         baseURL: settings.customBaseURL || 'https://api.example.com/v1',
         model: settings.customModel || 'gpt-4o-mini',
         apiKey: settings.customApiKey || ''
       };
     }
     return {
+      ...baseConfig,
       baseURL: ZEN_BASE_URL,
       model: settings.freeModel || 'big-pickle',
       apiKey: settings.zenApiKey || ''
@@ -144,13 +154,23 @@ ${currentChatText}
     const headers = { 'Content-Type': 'application/json' };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
 
+    // 使用配置中的参数
+    const body = {
+      model: config.model,
+      messages,
+      stream: true,
+      temperature: config.temperature || 0.3,
+      max_tokens: config.maxTokens || 32768
+    };
+    if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
+
     const controller = new AbortController();
     const fetchTimeout = setTimeout(() => controller.abort(), 1800000);
 
     try {
       const response = await fetch(url, {
         method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify({ model: config.model, messages, temperature: 0.3, max_tokens: 32768, stream: true })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -184,7 +204,10 @@ ${currentChatText}
             const j = JSON.parse(d);
             const delta = j.choices?.[0]?.delta;
             if (!delta) continue;
-            if (delta.reasoning_content || delta.reasoning) onThinking(delta.reasoning_content || delta.reasoning);
+            // 根据配置决定是否处理思考过程
+            if (config.enableThinking && (delta.reasoning_content || delta.reasoning)) {
+              onThinking(delta.reasoning_content || delta.reasoning);
+            }
             if (delta.content) { full += delta.content; onContent(delta.content); }
           } catch (_) {}
         }

@@ -7,7 +7,8 @@ const SETTINGS_KEY = 'tutor_settings';
 
 const DEFAULT_SETTINGS = {
   ...DEFAULT_API_CONFIG,
-  defaultHintLevel: 2
+  defaultHintLevel: 2,
+  coachStyle: 'default'
 };
 
 async function getSettings() {

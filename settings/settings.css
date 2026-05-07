@@ -7,6 +7,7 @@
 :root {
   --primary: #4F46E5;
   --primary-light: #6366f1;
+  --primary-bg: rgba(79, 70, 229, 0.08);
   --bg: #ffffff;
   --bg-secondary: #f9fafb;
   --text: #1f2937;
@@ -14,6 +15,7 @@
   --border: #e5e7eb;
   --danger: #ef4444;
   --danger-bg: #fef2f2;
+  --success: #10b981;
   --radius: 8px;
 }
 
@@ -25,6 +27,7 @@
     --text-secondary: #9ca3af;
     --border: #374151;
     --danger-bg: #450a0a;
+    --primary-bg: rgba(99, 102, 241, 0.15);
   }
 }
 
@@ -37,16 +40,65 @@ body {
 }
 
 .settings-container {
-  max-width: 560px;
+  max-width: 600px;
   margin: 0 auto;
   padding: 24px 20px;
 }
 
 h1 {
   font-size: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
+/* ==================== 标签导航 ==================== */
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text);
+}
+
+.tab-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ==================== 标签内容 ==================== */
+.tab-content {
+  min-height: 300px;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
+
+/* ==================== 通用设置区块 ==================== */
 .settings-section {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -82,6 +134,7 @@ h1 {
 
 .form-group input[type="text"],
 .form-group input[type="password"],
+.form-group input[type="number"],
 .form-group select {
   width: 100%;
   padding: 8px 12px;
@@ -105,48 +158,108 @@ h1 {
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 4px;
+  line-height: 1.5;
 }
 
-.danger-zone { border-color: var(--danger); }
-.danger-zone h2 { color: var(--danger); }
-
-.danger-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--danger);
-  border-radius: 6px;
-  background: var(--danger-bg);
-  color: var(--danger);
-  font-size: 13px;
-  cursor: pointer;
+.form-hint a {
+  color: var(--primary);
+  text-decoration: none;
 }
 
-.danger-btn:hover { background: var(--danger); color: #fff; }
-.danger-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+.form-hint a:hover {
+  text-decoration: underline;
+}
 
-.save-bar {
+/* ==================== 开关切换 ==================== */
+.toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
+  padding: 8px 0;
 }
 
-.save-status { font-size: 13px; color: var(--text-secondary); }
-.save-status.success { color: #10b981; }
-.save-status.error { color: var(--danger); }
+.toggle-label-text {
+  font-size: 13px;
+  color: var(--text);
+}
 
-.save-btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: 6px;
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+  margin: 0; /* 覆盖 .form-group label 之 margin */
+}
+
+.toggle-switch .toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+
+.toggle-slider {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #9ca3af;
+  border-radius: 24px;
+  transition: background 0.3s;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.toggle-switch .toggle-input:checked + .toggle-slider {
   background: var(--primary);
-  color: #fff;
-  font-size: 14px;
+}
+
+.toggle-switch .toggle-input:checked + .toggle-slider::after {
+  transform: translateX(20px);
+}
+
+/* ==================== 滑块 ==================== */
+input[type="range"] {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  -webkit-appearance: none;
+  margin: 8px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
   cursor: pointer;
 }
 
-.save-btn:hover { background: var(--primary-light); }
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
 
-/* Mode Toggle */
+/* ==================== 模式切换 ==================== */
 .mode-toggle {
   display: flex;
   gap: 10px;
@@ -191,16 +304,7 @@ h1 {
   color: var(--text-secondary);
 }
 
-.form-hint a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-.form-hint a:hover {
-  text-decoration: underline;
-}
-
-/* Select row with refresh */
+/* ==================== 选择行 + 刷新按钮 ==================== */
 .select-row {
   display: flex;
   gap: 8px;
@@ -225,7 +329,7 @@ h1 {
   background: var(--bg-secondary);
 }
 
-/* Test button */
+/* ==================== 测试按钮 ==================== */
 .test-btn {
   width: 100%;
   padding: 8px 12px;
@@ -243,4 +347,69 @@ h1 {
 .test-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+/* ==================== 危险区域 ==================== */
+.danger-zone { border-color: var(--danger); }
+.danger-zone h2 { color: var(--danger); }
+
+.danger-btn {
+  padding: 8px 16px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.danger-btn:hover { background: var(--danger); color: #fff; }
+.danger-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+
+/* ==================== 保存栏 ==================== */
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+}
+
+.save-status { font-size: 13px; color: var(--text-secondary); }
+.save-status.success { color: var(--success); }
+.save-status.error { color: var(--danger); }
+
+.save-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.save-btn:hover { background: var(--primary-light); }
+
+/* ==================== 存储信息 ==================== */
+.storage-info {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.8;
+}
+
+.storage-info p {
+  margin-bottom: 4px;
+}
+
+/* ==================== 关于信息 ==================== */
+.about-info {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.8;
+}
+
+.about-info strong {
+  font-size: 15px;
 }
