@@ -5,29 +5,44 @@
 }
 
 :root {
-  --primary: #4F46E5;
-  --primary-light: #6366f1;
-  --primary-bg: rgba(79, 70, 229, 0.08);
-  --bg: #ffffff;
-  --bg-secondary: #f9fafb;
-  --text: #1f2937;
-  --text-secondary: #6b7280;
-  --border: #e5e7eb;
-  --danger: #ef4444;
-  --danger-bg: #fef2f2;
-  --success: #10b981;
-  --radius: 8px;
+  --primary: #6B6BCB;
+  --primary-light: #8B8BDC;
+  --primary-bg: #F0EEF7;
+  --accent-warm: #C49B6B;
+  --bg: #F8F7F4;
+  --bg-card: #FFFFFF;
+  --bg-secondary: #F0EDEA;
+  --text: #2C2C2C;
+  --text-secondary: #8A8A8A;
+  --text-tertiary: #B0B0B0;
+  --border: #E6E2DC;
+  --danger: #D47A7A;
+  --danger-bg: #F8EEEE;
+  --success: #7A9E7A;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111827;
-    --bg-secondary: #1f2937;
-    --text: #f9fafb;
-    --text-secondary: #9ca3af;
-    --border: #374151;
-    --danger-bg: #450a0a;
-    --primary-bg: rgba(99, 102, 241, 0.15);
+    --primary: #9B9BD4;
+    --primary-light: #B0B0E0;
+    --primary-bg: #2A2A3E;
+    --bg: #1C1C28;
+    --bg-card: #252535;
+    --bg-secondary: #2E2E3E;
+    --text: #E8E4E0;
+    --text-secondary: #9A9AAA;
+    --text-tertiary: #6A6A7A;
+    --border: #3A3A4A;
+    --danger: #D47A7A;
+    --danger-bg: #3A2A2A;
+    --success: #7A9E7A;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.15);
+    --shadow: 0 1px 3px rgba(0,0,0,0.2);
   }
 }
 
@@ -35,44 +50,49 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 14px;
   color: var(--text);
-  background: var(--bg-secondary);
+  background: var(--bg);
   line-height: 1.6;
 }
 
 .settings-container {
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 32px 24px;
 }
 
 h1 {
-  font-size: 20px;
-  margin-bottom: 20px;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 /* ==================== 标签导航 ==================== */
 .tab-nav {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
-  background: var(--bg);
+  margin-bottom: 24px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 4px;
+  box-shadow: var(--shadow-sm);
 }
 
 .tab-btn {
   flex: 1;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   white-space: nowrap;
+  font-weight: 500;
 }
 
 .tab-btn:hover {
@@ -83,6 +103,7 @@ h1 {
 .tab-btn.active {
   background: var(--primary);
   color: #fff;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ==================== 标签内容 ==================== */
@@ -100,11 +121,17 @@ h1 {
 
 /* ==================== 通用设置区块 ==================== */
 .settings-section {
-  background: var(--bg);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 24px;
   margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+
+.settings-section:hover {
+  box-shadow: var(--shadow);
 }
 
 .settings-section h2 {
@@ -120,7 +147,7 @@ h1 {
 }
 
 .form-group {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .form-group:last-child { margin-bottom: 0; }
@@ -137,27 +164,28 @@ h1 {
 .form-group input[type="number"],
 .form-group select {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg);
   color: var(--text);
   font-size: 13px;
   font-family: inherit;
   outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(107, 107, 203, 0.1);
 }
 
 .form-hint {
   display: block;
   font-size: 11px;
-  color: var(--text-secondary);
-  margin-top: 4px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
   line-height: 1.5;
 }
 
@@ -175,7 +203,7 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: 10px 0;
 }
 
 .toggle-label-text {
@@ -190,7 +218,7 @@ h1 {
   height: 24px;
   flex-shrink: 0;
   cursor: pointer;
-  margin: 0; /* 覆盖 .form-group label 之 margin */
+  margin: 0;
 }
 
 .toggle-switch .toggle-input {
@@ -201,14 +229,12 @@ h1 {
   pointer-events: none;
 }
 
-
 .toggle-slider {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: #9ca3af;
+  background: var(--text-tertiary);
   border-radius: 24px;
   transition: background 0.3s;
-  box-shadow: inset 0 1px 4px rgba(0,0,0,0.2);
 }
 
 .toggle-slider::after {
@@ -221,7 +247,7 @@ h1 {
   background: #fff;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 .toggle-switch .toggle-input:checked + .toggle-slider {
@@ -240,23 +266,30 @@ input[type="range"] {
   background: var(--border);
   outline: none;
   -webkit-appearance: none;
-  margin: 8px 0;
+  margin: 10px 0;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--primary);
   cursor: pointer;
+  border: 2px solid var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
 }
 
 .range-labels {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
 }
 
 /* ==================== 模式切换 ==================== */
@@ -278,20 +311,26 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 10px;
+  gap: 6px;
+  padding: 16px 10px;
   border: 2px solid var(--border);
   border-radius: var(--radius);
   text-align: center;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  background: var(--bg);
+}
+
+.mode-card:hover {
+  border-color: var(--primary);
 }
 
 .mode-option input:checked + .mode-card {
   border-color: var(--primary);
   background: var(--primary-bg);
+  box-shadow: 0 0 0 1px var(--primary);
 }
 
-.mode-icon { font-size: 24px; }
+.mode-icon { font-size: 28px; }
 
 .mode-title {
   font-size: 14px;
@@ -315,82 +354,109 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .refresh-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--bg);
   cursor: pointer;
   font-size: 16px;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .refresh-btn:hover {
   background: var(--bg-secondary);
+  border-color: var(--primary);
 }
 
 /* ==================== 测试按钮 ==================== */
 .test-btn {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 1px dashed var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
-  margin-top: 4px;
+  margin-top: 8px;
   font-family: inherit;
 }
 
 .test-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+  border-style: solid;
 }
 
 /* ==================== 危险区域 ==================== */
-.danger-zone { border-color: var(--danger); }
-.danger-zone h2 { color: var(--danger); }
+.danger-zone {
+  border-color: var(--danger);
+}
+.danger-zone h2 {
+  color: var(--danger);
+}
 
 .danger-btn {
-  padding: 8px 16px;
+  padding: 10px 20px;
   border: 1px solid var(--danger);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   background: var(--danger-bg);
   color: var(--danger);
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
+  transition: all 0.2s;
 }
 
-.danger-btn:hover { background: var(--danger); color: #fff; }
-.danger-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+.danger-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.danger-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
 
 /* ==================== 保存栏 ==================== */
 .save-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 0;
+  padding: 20px 0;
 }
 
-.save-status { font-size: 13px; color: var(--text-secondary); }
+.save-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
 .save-status.success { color: var(--success); }
 .save-status.error { color: var(--danger); }
 
 .save-btn {
-  padding: 10px 24px;
+  padding: 12px 28px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--primary);
   color: #fff;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   font-family: inherit;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
-.save-btn:hover { background: var(--primary-light); }
+.save-btn:hover {
+  background: var(--primary-light);
+  box-shadow: var(--shadow);
+}
 
 /* ==================== 存储信息 ==================== */
 .storage-info {
