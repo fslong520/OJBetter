@@ -128,7 +128,7 @@ ${currentChatText}
     // 基础配置（AI 参数）
     const baseConfig = {
       enableThinking: settings.enableThinking !== false, // 默认开启
-      temperature: settings.temperature || 0.3,
+      temperature: settings.temperature ?? 0.1,
       maxTokens: settings.maxTokens || 32768,
       topP: settings.topP || 1.0,
     };
@@ -159,7 +159,7 @@ ${currentChatText}
       model: config.model,
       messages,
       stream: true,
-      temperature: config.temperature || 0.3,
+      temperature: config.temperature ?? 0.1,
       max_tokens: config.maxTokens || 32768
     };
     if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;

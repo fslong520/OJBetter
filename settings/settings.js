@@ -3,6 +3,12 @@
  */
 
 const ZEN_API = 'https://opencode.ai/zen/v1';
+
+/**
+ * 兜底的免费模型列表。
+ * 仅当 /models 接口完全不可用时才会用到。
+ * 正常情况下优先从接口拉取 + 实测验证可用性。
+ */
 const FALLBACK_MODELS = [
   { id: 'big-pickle', name: 'Big Pickle' },
   { id: 'nemotron-3-super-free', name: 'Nemotron 3 Super (NVIDIA)' },
@@ -62,8 +68,8 @@ async function loadSettings() {
 
     // AI 参数
     document.getElementById('enable-thinking').checked = s.enableThinking !== false; // 默认开启
-    document.getElementById('temperature').value = s.temperature || 0.3;
-    document.getElementById('temp-value').textContent = s.temperature || 0.3;
+    document.getElementById('temperature').value = s.temperature ?? 0.1;
+    document.getElementById('temp-value').textContent = s.temperature ?? 0.1;
     document.getElementById('max-tokens').value = s.maxTokens || 32768;
     document.getElementById('top-p').value = s.topP || 1.0;
     document.getElementById('top-p-value').textContent = s.topP || 1.0;
@@ -73,11 +79,8 @@ async function loadSettings() {
     document.getElementById('coach-style-select').value = s.coachStyle || 'default';
     document.getElementById('auto-detect-code').checked = s.autoDetectCode !== false; // 默认开启
 
-    // 暂时用缓存或默认值填充，fetchModels 会异步更新
-    const cachedModels = s.cachedModels || [];
-    if (cachedModels.length > 0) {
-      populateModelSelect(cachedModels, s.freeModel);
-    }
+    // 先用默认模型占位，fetchModels 会立即用内置列表填充
+    populateModelSelect(FALLBACK_MODELS, s.freeModel || 'big-pickle');
 
     // 滑块实时显示
     bindSliderEvents();
@@ -100,34 +103,62 @@ function bindSliderEvents() {
 }
 
 // ==================== 模型列表 ====================
+/**
+ * 从 Zen API 拉取免费模型列表，逐个实测验证可用性，
+ * 只有能正常返回的模型才展示给用户。
+ * 
+ * 为什么要实测：
+ * /models 接口返回的模型中，不少带 "free" 标签的实际上已失效或不可用，
+ * 如果全部列出来，用户选到不能用的模型会困惑。
+ * 
+ * 实测方式：对每个模型发一条最简单的 chat completion 请求（max_tokens=1），
+ * 成功的留下，失败的剔除。
+ */
 async function fetchModels() {
   const statusEl = document.getElementById('models-status');
+  const savedModel = document.getElementById('free-model-select').value || 'big-pickle';
+
   statusEl.textContent = '正在获取模型列表...';
+  statusEl.style.color = '';
 
   try {
+    // 1. 拉取模型列表
     const resp = await fetch(`${ZEN_API}/models`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
-    const allModels = (data.data || [])
+    const rawModels = (data.data || [])
       .filter(m => m.id && (m.id.includes('free') || m.id === 'big-pickle'))
       .map(m => ({ id: m.id, name: m.id }));
 
-    if (allModels.length === 0) throw new Error('empty list');
+    if (rawModels.length === 0) throw new Error('empty list');
 
-    statusEl.textContent = `✅ 获取到 ${allModels.length} 个可用模型`;
+    // 2. 逐个实测
+    statusEl.textContent = `正在验证 ${rawModels.length} 个模型的可用性...`;
+    const results = await testModels(rawModels);
+
+    const working = results.filter(r => r.ok).map(r => r.model);
+    const failed  = results.filter(r => !r.ok).map(r => r.model.id);
+
+    if (working.length === 0) throw new Error('all models failed');
+
+    // 3. 只展示能用的
+    populateModelSelect(working, working.some(m => m.id === savedModel) ? savedModel : working[0].id);
+
+    const failHint = failed.length > 0 ? `，${failed.length} 个不可用已剔除` : '';
+    statusEl.textContent = `✅ ${working.length} 个可用模型${failHint}`;
     statusEl.style.color = '#10b981';
-    populateModelSelect(allModels, allModels[0]?.id || 'big-pickle');
 
-    // 异步缓存（不阻塞）
+    // 异步缓存
     try {
-      const resp = await chrome.runtime.sendMessage({ type: 'getSettings' });
+      const r = await chrome.runtime.sendMessage({ type: 'getSettings' });
       await chrome.runtime.sendMessage({
         type: 'saveSettings',
-        settings: { ...(resp?.settings || {}), cachedModels: allModels }
+        settings: { ...(r?.settings || {}), cachedModels: working }
       });
     } catch (_) {}
 
   } catch (e) {
-    statusEl.textContent = '⚠️ 无法连接 Zen，使用本地缓存';
+    statusEl.textContent = '⚠️ 无法获取可用模型，使用本地缓存';
     statusEl.style.color = '#f59e0b';
     try {
       const r = await chrome.runtime.sendMessage({ type: 'getSettings' });
@@ -136,6 +167,51 @@ async function fetchModels() {
     } catch (_) {
       populateModelSelect(FALLBACK_MODELS, 'big-pickle');
     }
+  }
+}
+
+/**
+ * 并发测试一批模型，发一条最简单的 chat completion 验证是否可用。
+ * 返回每个模型的测试结果。
+ */
+async function testModels(models) {
+  const testPromises = models.map(model =>
+    testSingleModel(model).then(ok => ({ model, ok })).catch(() => ({ model, ok: false }))
+  );
+  // 全部并发，谁先完谁先报
+  return Promise.allSettled(testPromises).then(results =>
+    results.map(r => r.status === 'fulfilled' ? r.value : { model: null, ok: false })
+  );
+}
+
+/**
+ * 测试单个模型：发一条 max_tokens=1 的请求，只要能正常返回就算通过。
+ */
+async function testSingleModel(model) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000); // 10 秒超时
+
+  try {
+    const resp = await fetch(`${ZEN_API}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model.id,
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 1
+      }),
+      signal: controller.signal
+    });
+
+    if (!resp.ok) return false;
+
+    const data = await resp.json();
+    const reply = data?.choices?.[0]?.message?.content;
+    return reply !== undefined && reply !== null;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -280,13 +356,6 @@ async function testCustomModel() {
 async function saveSettings() {
   const mode = document.querySelector('input[name="model-mode"]:checked')?.value || 'free';
 
-  // 保留已有的缓存模型
-  let cachedModels = FALLBACK_MODELS;
-  try {
-    const resp = await chrome.runtime.sendMessage({ type: 'getSettings' });
-    if (resp?.settings?.cachedModels) cachedModels = resp.settings.cachedModels;
-  } catch (_) {}
-
   const settings = {
     modelMode: mode,
     freeModel: document.getElementById('free-model-select').value,
@@ -303,8 +372,8 @@ async function saveSettings() {
     defaultHintLevel: parseInt(document.getElementById('default-hint-level').value),
     coachStyle: document.getElementById('coach-style-select').value || 'default',
     autoDetectCode: document.getElementById('auto-detect-code').checked,
-    // 保留缓存
-    cachedModels
+    // 保留内置模型列表，以备后用
+    cachedModels: FALLBACK_MODELS
   };
 
   try {

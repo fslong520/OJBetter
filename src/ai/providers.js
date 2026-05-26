@@ -121,7 +121,7 @@ class HintGenerator {
     // 基础配置（AI 参数）
     const baseConfig = {
       enableThinking: settings.enableThinking !== false, // 默认开启
-      temperature: settings.temperature || 0.3,
+      temperature: settings.temperature ?? 0.1,
       maxTokens: settings.maxTokens || 32768,
       topP: settings.topP || 1.0,
     };
@@ -266,7 +266,7 @@ class HintGenerator {
     const url = `${config.baseURL}/chat/completions`;
     const headers = { 
       'Content-Type': 'application/json',
-      'User-Agent': 'OJBetter/1.1.1 (Chrome Extension)'
+      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
     };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
 
@@ -275,7 +275,7 @@ class HintGenerator {
       model: config.model,
       messages,
       stream: true,
-      temperature: config.temperature || 0.3,
+      temperature: config.temperature ?? 0.1,
       max_tokens: config.maxTokens || 32768
     };
     if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;

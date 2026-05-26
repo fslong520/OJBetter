@@ -1,0 +1,20 @@
+# 扩展商店认证说明（含 API Key，切勿公开）
+CERTIFICATION_NOTES.md
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Node / 依赖（如有）
+node_modules/
+package-lock.json
+
+# 打包输出
+*.zip
+*.crx
+*.pem
