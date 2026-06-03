@@ -138,7 +138,7 @@ OJBetter/
 │   └── sidepanel.css     # 聊天气泡样式
 ├── src/
 │   ├── background.js      # 后台服务（消息路由、Storage 流管理）
-│   ├── content.js         # 页面注入（题目捕获、按钮注入）
+│   ├── content.js         # 页面注入（题目捕获）
 │   ├── ai/
 │   │   └── providers.js  # AI 调用核心（COACH_PROMPT、流式生成）
 │   ├── storage/
@@ -194,10 +194,12 @@ MIT License - 自由使用、修改和分发。
 欢迎提交 Issue 和 Pull Request！
 
 **开发计划**：
-- [ ] 上架 Chrome 网上应用店
-- [ ] 支持更多题库网站的题目识别
-- [ ] 增加语音播报功能（面向低龄学生）
-- [ ] 导出学习报告 PDF
+- [x] 移除页面悬浮球 UI，清理相关描述
+- [ ] 上架 Chrome 网上应用店（ZIP 已打包，需开发者账号 → 联系我）
+- [x] 支持更多题库网站的题目识别（新增 26 个 OJ 域名 + 18 个选择器）
+- [x] 增加语音播报与语音输入功能（Web Speech API）
+- [x] 多模态支持：图片上传/粘贴/预览/发送
+- [x] 导出学习报告 PDF
 
 ---
 

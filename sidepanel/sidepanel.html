@@ -17,6 +17,7 @@
       <div class="header-right">
         <button id="history-btn" class="icon-btn" title="历史记录">📜</button>
         <button id="plan-btn" class="icon-btn" title="明日推荐">📅</button>
+        <button id="export-btn" class="icon-btn" title="导出学习报告">📄</button>
         <button id="settings-btn" class="icon-btn" title="设置">⚙️</button>
         <button id="help-btn" class="icon-btn" title="帮助">❓</button>
       </div>
@@ -30,7 +31,9 @@
         <h2>你好！我是小智 👋</h2>
         <p>我会一步步引导你理解编程题。</p>
         <div class="capture-area">
-          <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="3"></textarea>
+          <div class="capture-input-row">
+            <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="3"></textarea>
+          </div>
           <button id="start-coach-btn" class="start-btn">✨ 灵光一下，开始思考</button>
           <button id="translate-btn" class="capture-btn" style="margin-top:6px;">🌐 翻译成中文</button>
         </div>
@@ -50,7 +53,12 @@
           </div>
           <div id="thinking-content" class="thinking-content"></div>
         </div>
+        <div id="preview-bar" class="preview-bar" style="display:none">
+          <div id="preview-list" class="preview-list"></div>
+        </div>
         <div class="chat-input-area">
+          <button id="attach-btn" class="attach-btn" title="添加图片">📎</button>
+          <input id="file-input" type="file" accept="image/*" multiple style="display:none">
           <textarea id="chat-input" placeholder="输入你的想法..." rows="2"></textarea>
           <button id="chat-send-btn" class="send-btn" title="发送">➤</button>
         </div>
@@ -145,6 +153,7 @@
     </div>
   </div>
 
-  <script type="module" src="sidepanel.js"></script>
+<script src="../src/lib/jspdf.umd.min.js"></script>
+<script type="module" src="sidepanel.js"></script>
 </body>
 </html>

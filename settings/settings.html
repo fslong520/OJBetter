@@ -15,6 +15,7 @@
       <button class="tab-btn active" data-tab="model">🔧 模型配置</button>
       <button class="tab-btn" data-tab="ai-params">🤖 AI 参数</button>
       <button class="tab-btn" data-tab="coach">🎓 教练设置</button>
+      <button class="tab-btn" data-tab="voice">🎤 语音设置</button>
       <button class="tab-btn" data-tab="advanced">⚠️ 高级操作</button>
     </div>
 
@@ -180,7 +181,47 @@
         </section>
       </div>
 
-      <!-- 标签4：高级操作 -->
+      <!-- 标签4：语音设置 -->
+      <div class="tab-pane" id="tab-voice">
+        <section class="settings-section">
+          <h2>🎤 语音播报</h2>
+          <div class="toggle-row">
+            <span class="toggle-label-text">AI 回答自动朗读</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="tts-enabled" class="toggle-input">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="form-hint">开启后，AI 回答旁将显示 🔊 朗读按钮</p>
+        </section>
+
+        <section class="settings-section">
+          <h2>朗读语速</h2>
+          <div class="form-group">
+            <label for="tts-rate">语速：<span id="tts-rate-value">1.2</span></label>
+            <input type="range" id="tts-rate" min="0.5" max="2.0" step="0.1" value="1.2">
+            <div class="range-labels">
+              <span>慢 (0.5)</span>
+              <span>正常 (1.0)</span>
+              <span>快 (2.0)</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>朗读音色</h2>
+          <div class="form-group">
+            <label for="tts-voice">语音</label>
+            <select id="tts-voice">
+              <option value="">系统默认</option>
+            </select>
+            <p class="form-hint">选择朗读音色，具体选项取决于操作系统和浏览器</p>
+          </div>
+          <button id="refresh-voices-btn" class="test-btn">🔄 刷新语音列表</button>
+        </section>
+      </div>
+
+      <!-- 标签5：高级操作 -->
       <div class="tab-pane" id="tab-advanced">
         <section class="settings-section danger-zone">
           <h2>🗑️ 清除数据</h2>

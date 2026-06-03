@@ -262,6 +262,8 @@ body {
 
 .chat-message--assistant {
   align-self: flex-start;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .chat-bubble {
@@ -286,6 +288,7 @@ body {
   border-bottom-left-radius: 4px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
+  padding-right: 28px;
 }
 
 .chat-bubble h2 { font-size: 16px; margin: 8px 0 4px; }
@@ -357,6 +360,37 @@ body {
 .chat-bubble .title-io { color: #2563eb; }
 
 .error-msg { color: #ef4444; font-size: 13px; }
+
+/* TTS button — outside right of assistant bubble */
+.tts-btn {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+  color: var(--text-secondary, #6b7280);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+.chat-message--assistant:hover .tts-btn {
+  opacity: 1;
+}
+.tts-btn:hover {
+  background: rgba(0,0,0,0.12);
+}
+.tts-btn.speaking {
+  opacity: 1;
+  color: #D47A7A;
+}
 
 /* Copy markdown button */
 .copy-md-btn {
@@ -486,6 +520,134 @@ body {
   50% { box-shadow: 0 0 0 6px rgba(212, 122, 122, 0); }
 }
 
+/* Attach button */
+.attach-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  align-self: center;
+}
+.attach-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Preview bar — above input area */
+.preview-bar {
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  padding: 8px 12px 0;
+  flex-shrink: 0;
+}
+
+.preview-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.preview-item {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.preview-item img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.preview-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.15s;
+}
+.preview-remove:hover {
+  transform: scale(1.2);
+}
+
+/* Chat bubble image — inline thumbnails */
+.chat-bubble img.chat-attachment-img {
+  max-width: 240px;
+  border-radius: 8px;
+  margin: 4px 0;
+  cursor: pointer;
+  display: block;
+}
+
+/* Lightbox — full-screen overlay */
+.lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+.lightbox-overlay img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  object-fit: contain;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.lightbox-close:hover {
+  background: rgba(255,255,255,0.3);
+}
+
 /* Remove old hint button / capture area styles */
 .capture-area {
   display: flex;
@@ -518,6 +680,19 @@ body {
 
 #problem-input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* Welcome page input row — textarea side by side */
+.capture-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.capture-input-row #problem-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .hint-buttons {

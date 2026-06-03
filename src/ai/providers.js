@@ -143,7 +143,7 @@ class HintGenerator {
   }
 
   // ==================== 教练多轮对话 ====================
-  async coachChat(problemText, chatHistory, onThinking, onContent, onDone, onError) {
+  async coachChat(problemText, chatHistory, attachments = [], onThinking, onContent, onDone, onError) {
     try {
       const config = await this.getConfig();
       const settings = await getSettings();
@@ -175,7 +175,26 @@ class HintGenerator {
       
       // 加入历史对话
       for (const msg of (chatHistory || [])) {
-        messages.push({ role: msg.role, content: String(msg.content).slice(0, 4000) });
+        const content = Array.isArray(msg.content) ? msg.content : String(msg.content).slice(0, 4000);
+        messages.push({ role: msg.role, content });
+      }
+      
+      // 处理附件：将最后一条 user 消息转为 content array
+      if (attachments && attachments.length > 0) {
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === 'user') {
+            const originalContent = messages[i].content;
+            const textContent = typeof originalContent === 'string' ? originalContent : '';
+            messages[i].content = [
+              { type: 'text', text: textContent },
+              ...attachments.map(att => ({
+                type: 'image_url',
+                image_url: { url: att.data }
+              }))
+            ];
+            break;
+          }
+        }
       }
       
       await this._streamRequest(config, messages, onThinking, onContent, onDone, onError);
@@ -206,7 +225,7 @@ class HintGenerator {
   }
 
   // ==================== 流式翻译 ====================
-  async translateStream(problemText, onThinking, onContent, onDone, onError) {
+  async translateStream(problemText, attachments = [], onThinking, onContent, onDone, onError) {
     try {
       const config = await this.getConfig();
       const systemPrompt = `你是一个翻译引擎。用户会发送一段包含编程题目的文本。
@@ -247,9 +266,20 @@ class HintGenerator {
 
       // 翻译模式也传入清洗后的纯文本，节省 token
       const cleanInput = cleanHTML(String(problemText)).replace(/\s+/g, ' ').trim().slice(0, 8000);
+      let userContent = cleanInput;
+      if (attachments && attachments.length > 0) {
+        userContent = [
+          { type: 'text', text: cleanInput },
+          ...attachments.map(att => ({
+            type: 'image_url',
+            image_url: { url: att.data }
+          }))
+        ];
+      }
+
       const messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: cleanInput }
+        { role: 'user', content: userContent }
       ];
 
       // 包装回调，过滤HTML残留 + 检测取消

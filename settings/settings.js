@@ -79,6 +79,13 @@ async function loadSettings() {
     document.getElementById('coach-style-select').value = s.coachStyle || 'default';
     document.getElementById('auto-detect-code').checked = s.autoDetectCode !== false; // 默认开启
 
+    // 语音设置
+    document.getElementById('tts-enabled').checked = !!s.ttsEnabled;
+    document.getElementById('tts-rate').value = s.ttsRate ?? 1.2;
+    document.getElementById('tts-rate-value').textContent = s.ttsRate ?? 1.2;
+    // 语音列表在刷新时填充，但先尝试加载已保存的音色
+    populateVoiceList(s.ttsVoice || '');
+
     // 先用默认模型占位，fetchModels 会立即用内置列表填充
     populateModelSelect(FALLBACK_MODELS, s.freeModel || 'big-pickle');
 
@@ -100,6 +107,14 @@ function bindSliderEvents() {
   topPSlider.addEventListener('input', () => {
     topPValue.textContent = topPSlider.value;
   });
+
+  const ttsRateSlider = document.getElementById('tts-rate');
+  const ttsRateValue = document.getElementById('tts-rate-value');
+  if (ttsRateSlider) {
+    ttsRateSlider.addEventListener('input', () => {
+      ttsRateValue.textContent = ttsRateSlider.value;
+    });
+  }
 }
 
 // ==================== 模型列表 ====================
@@ -249,6 +264,10 @@ function bindEvents() {
   document.getElementById('test-model-btn').addEventListener('click', testModel);
   document.getElementById('test-custom-btn').addEventListener('click', testCustomModel);
 
+  // 刷新语音列表
+  const refreshVoicesBtn = document.getElementById('refresh-voices-btn');
+  if (refreshVoicesBtn) refreshVoicesBtn.addEventListener('click', populateVoiceList);
+
   // 清除历史
   document.getElementById('clear-history-btn').addEventListener('click', async () => {
     if (confirm('确定要清除所有提问记录吗？此操作不可撤销。')) {
@@ -372,6 +391,10 @@ async function saveSettings() {
     defaultHintLevel: parseInt(document.getElementById('default-hint-level').value),
     coachStyle: document.getElementById('coach-style-select').value || 'default',
     autoDetectCode: document.getElementById('auto-detect-code').checked,
+    // 语音设置
+    ttsEnabled: document.getElementById('tts-enabled').checked,
+    ttsRate: parseFloat(document.getElementById('tts-rate').value),
+    ttsVoice: document.getElementById('tts-voice').value || '',
     // 保留内置模型列表，以备后用
     cachedModels: FALLBACK_MODELS
   };
@@ -424,6 +447,28 @@ function getStyleName(key) {
     'sarcastic': '毒舌严师型'
   };
   return map[key] || '未知';
+}
+
+// ==================== 语音列表 ====================
+function populateVoiceList(selectedVoice) {
+  const select = document.getElementById('tts-voice');
+  if (!select) return;
+  const voices = speechSynthesis.getVoices();
+  // 保留默认选项
+  select.innerHTML = '<option value="">系统默认</option>';
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.voiceURI;
+    opt.textContent = v.name + ' (' + v.lang + ')';
+    if (v.voiceURI === selectedVoice) opt.selected = true;
+    select.appendChild(opt);
+  });
+  // 如果 speechSynthesis 还没加载完，监听 voiceschanged
+  if (voices.length === 0) {
+    speechSynthesis.onvoiceschanged = () => {
+      populateVoiceList(selectedVoice || document.getElementById('tts-voice')?.value || '');
+    };
+  }
 }
 
 // ==================== 工具函数 ====================

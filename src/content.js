@@ -1,6 +1,6 @@
 /**
  * Content Script - 页面注入
- * 检测页面中的编程题目，添加悬浮按钮方便快速提问
+ * 检测页面中的编程题目，注入题目捕获与扩展交互功能
  */
 
 (function () {
@@ -31,6 +31,11 @@
     'codevs.cn',       // CodeVS
     'icpc.cn',         // ICPC中国
     'ioinformatics.org', // 国际信息学奥林匹克
+    'dotcpp.com',        // C语言网
+    'pintia.cn',         // 拼题A (PTA)
+    'csoj.org',          // CSOJ
+    'acs.jxnu.edu.cn',   // 江西师大OJ
+    'nanti.jisuanke.com', // 计蒜客题目
     // 国外OJ/竞赛站
     'codeforces.com',
     'codechef.com',
@@ -44,6 +49,26 @@
     'timus.ru',
     'acmp.ru',
     'coj.uci.cu',
+    'dmoj.ca',           // DMOJ (加拿大)
+    'omegaup.com',       // OmegaUp (拉丁美洲)
+    'toph.co',           // Toph (孟加拉)
+    'judge.yosupo.jp',   // Library Checker
+    'kattis.com',        // Kattis
+    'open.kattis.com',   // Open Kattis
+    'hackerearth.com',   // HackerEarth
+    'codingbat.com',     // CodingBat
+    'edabit.com',        // Edabit
+    'checkio.org',       // CheckiO
+    'codility.com',      // Codility
+    'projecteuler.net',  // Project Euler
+    'rosalind.info',     // Rosalind
+    'adventofcode.com',  // Advent of Code
+    'techiedelight.com', // Techie Delight
+    'practice.geeksforgeeks.org', // GFG 练习
+    'codingcompetitions.withgoogle.com', // Google 竞赛
+    'codegolf.stackexchange.com', // Code Golf
+    'codingame.com',     // CodinGame
+    'qoj.ac',            // QOJ
     // 常见编程学习站
     'lintcode.com',
     'programiz.com',
@@ -51,7 +76,8 @@
     'runoob.com',
     'leetcode.com',    // 力扣国际版
     'exercism.org',
-    'codecademy.com'
+    'codecademy.com',
+    'brilliant.org'      // Brilliant
   ];
 
   // ==================== Problem Detection ====================
@@ -65,7 +91,14 @@
     const selectors = [
       '#task-statement', '.problem-content', '.question-content', '#problem',
       '.problem-statement', '.markdown-body', '.task-description',
-      '.challenge-instructions', '.view-lines', '.monaco-editor'
+      '.challenge-instructions', '.view-lines', '.monaco-editor',
+      '.description', '.problem-description', '#problem-body',
+      '.statement', '#statement', '.problem-statement',
+      '[class*="problem"]', '[id*="problem"]',
+      '[class*="description"]', '.content__default',
+      '.typography', '.entry-content', '.post-content',
+      '#content', '#main-content', 'main[role="main"]',
+      'article', '.article-content'
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);

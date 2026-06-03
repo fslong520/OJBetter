@@ -2,13 +2,19 @@
  * Side Panel - 教练多轮对话模式
  */
 
-const state = { problemText: '', chatHistory: [], inChat: false };
+import { exportLearningReport } from '../src/export/pdf-export.js';
+import { getSettings } from '../src/storage/settings.js';
+
+const state = { problemText: '', chatHistory: [], inChat: false, attachments: [] };
 const $ = (sel) => document.querySelector(sel);
 let _streamPort = null;  // 保留兼容
 let _streamId = null;
 let _streamCleanup = null;
 let _keepalivePort = null;  // keepalive port，防止 service worker 休眠
 let _currentAssistantEl = null; // 正在流式写入的 AI 消息元素
+
+// TTS state
+let _currentUtterance = null;
 
 // ==================== Init ====================
 document.addEventListener('DOMContentLoaded', () => { checkFirstOpen(); checkPendingHint(); bindEvents(); });
@@ -41,10 +47,13 @@ function bindEvents() {
   const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => { clearError(); captureAndCoach(); });
   const trans = $('#translate-btn'); if (trans) trans.addEventListener('click', () => { clearError(); captureAndTranslate(); });
   const send = $('#chat-send-btn'); if (send) send.onclick = sendCoachMessage;
+  const attachBtn = $('#attach-btn'); if (attachBtn) attachBtn.addEventListener('click', () => { $('#file-input')?.click(); });
+  const fileInput = $('#file-input'); if (fileInput) fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
   const input = $('#chat-input'); if (input) {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
     });
+    input.addEventListener('paste', handlePaste);
   }
   const probInput = $('#problem-input'); if (probInput) {
     probInput.addEventListener('input', clearError);
@@ -53,6 +62,7 @@ function bindEvents() {
   const nc = $('#new-coach-btn'); if (nc) nc.addEventListener('click', resetToWelcome);
   const hb = $('#history-btn'); if (hb) hb.addEventListener('click', showHistory);
   const pb = $('#plan-btn'); if (pb) pb.addEventListener('click', showPlan);
+  const eb = $('#export-btn'); if (eb) eb.addEventListener('click', handleExport);
   const sb = $('#settings-btn'); if (sb) sb.addEventListener('click', openSettings);
   const helpBtn = $('#help-btn'); if (helpBtn) helpBtn.addEventListener('click', showHelp);
   const hBack = $('#history-back-btn'); if (hBack) hBack.addEventListener('click', () => switchPanel('chat'));
@@ -193,22 +203,28 @@ function startCoach(problemText) {
 
 function sendCoachMessage() {
   if (!state.inChat) return;
-  if (_streamId) return; // 正在流式处理中，禁止发送
+  if (_streamId) return;
   const input = $('#chat-input');
   const text = input ? String(input.value).trim() : '';
-  if (!text) return;
+  const hasAttachments = state.attachments.length > 0;
+  if (!text && !hasAttachments) return;
   input.value = '';
-  // 添加用户消息
-  addChatMessage('user', text);
-  state.chatHistory.push({ role: 'user', content: text });
-  // 发送给 AI
+  // Capture and clear attachments
+  const attachments = state.attachments.slice();
+  state.attachments = [];
+  renderPreviews();
+  // Add user message with attachments
+  addChatMessage('user', text, false, attachments);
+  state.chatHistory.push({ role: 'user', content: text, attachments });
+  // Send to AI
   startStream({
     type: 'generateHintStream',
     problemText: state.problemText.slice(0, 10000),
     hintLevel: 0,
     previousHints: [],
     coachMode: true,
-    chatHistory: state.chatHistory
+    chatHistory: state.chatHistory,
+    attachments
   }, { onDone: (full) => recordAssistant(full) });
 }
 
@@ -216,6 +232,24 @@ function recordAssistant(full) {
   const clean = (full || '').replace(/<[^>]+>/g, '').trim();
   if (clean) {
     state.chatHistory.push({ role: 'assistant', content: clean });
+  }
+}
+
+// ==================== Export PDF ====================
+async function handleExport() {
+  clearError();
+  if (!state.problemText && (!state.chatHistory || state.chatHistory.length === 0)) {
+    showError('无内容可导出。请先开始一次对话。');
+    return;
+  }
+  const btn = $('#export-btn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; btn.style.opacity = '0.6'; }
+  try {
+    await exportLearningReport(state.problemText, state.chatHistory);
+  } catch (e) {
+    showError('导出失败: ' + e.message);
+  } finally {
+    if (btn) { btn.textContent = '📄'; btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
 
@@ -386,7 +420,8 @@ function startStream(msg, extra) {
     previousHints: msg.previousHints || [],
     chatHistory: msg.chatHistory || [],
     coachMode: msg.coachMode || false,
-    isTranslate: msg.isTranslate || false
+    isTranslate: msg.isTranslate || false,
+    attachments: msg.attachments || []
   }).then((resp) => {
     if (resp?.error) {
       showError('启动失败: ' + resp.error);
@@ -427,16 +462,26 @@ function streamToAssistantEl(text) {
   const ta = $('#thinking-area'); if (ta) ta.style.display = 'block';
 }
 
-function finalizeAssistantEl() {
-  if (!_currentAssistantEl) return;
-  const bubble = _currentAssistantEl.querySelector('.chat-bubble');
-  if (bubble._raw) {
+async function finalizeAssistantEl() {
+  const el = _currentAssistantEl;
+  if (!el) return;
+  const bubble = el.querySelector('.chat-bubble');
+  if (bubble && bubble._raw) {
     bubble.dataset.markdown = bubble._raw;
     bubble.innerHTML = renderMarkdown(bubble._raw);
     delete bubble._raw;
     addCopyBtn(bubble);
+    const ttsBtn = addTtsBtn(el);
+    // 自动朗读：若启用语音播报，新消息自动朗读
+    if (ttsBtn) {
+      const settings = await getSettings();
+      if (settings.ttsEnabled) {
+        ttsBtn.click();
+      }
+    }
   }
-  _currentAssistantEl = null;
+  // 仅当 _currentAssistantEl 未被新流覆盖时才清空
+  if (_currentAssistantEl === el) _currentAssistantEl = null;
   scrollChatToBottom();
   // AI回答完成后清空聊天输入框
   const input = document.getElementById('chat-input');
@@ -483,6 +528,68 @@ function addCopyBtn(bubble) {
   });
   bubble.appendChild(btn);
 }
+// ==================== TTS (Text-to-Speech) ====================
+function addTtsBtn(container) {
+  const existing = container.querySelector('.tts-btn');
+  if (existing) return existing;
+  const btn = document.createElement('button');
+  btn.className = 'tts-btn';
+  btn.title = '朗读';
+  btn.textContent = '🔊';
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await toggleTts(container, btn);
+  });
+  container.appendChild(btn);
+  return btn;
+}
+
+async function toggleTts(container, btn) {
+  if (btn.classList.contains('speaking')) {
+    stopSpeaking();
+    return;
+  }
+  const settings = await getSettings();
+  speechSynthesis.cancel();
+  const bubble = container.querySelector('.chat-bubble');
+  const text = bubble ? (bubble.dataset.markdown || bubble.textContent || '') : '';
+  if (!text) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'zh-CN';
+  utterance.rate = settings.ttsRate ?? 1.2;
+  if (settings.ttsVoice) {
+    const voices = speechSynthesis.getVoices();
+    const match = voices.find(v => v.voiceURI === settings.ttsVoice);
+    if (match) utterance.voice = match;
+  }
+  if (!utterance.voice) {
+    const voices = speechSynthesis.getVoices();
+    const zhVoice = voices.find(v => v.lang === 'zh-CN')
+      || voices.find(v => v.lang === 'zh-Hans-CN')
+      || voices.find(v => v.lang && (v.lang.startsWith('zh-CN') || v.lang.startsWith('zh-Hans')))
+      || voices.find(v => v.lang && v.lang.startsWith('zh'));
+    if (zhVoice) utterance.voice = zhVoice;
+  }
+  utterance.volume = 1;
+  btn.classList.add('speaking');
+  btn.textContent = '🔇';
+  _currentUtterance = utterance;
+  utterance.onend = () => { resetTtsBtn(btn); };
+  utterance.onerror = () => { resetTtsBtn(btn); };
+  speechSynthesis.speak(utterance);
+}
+
+function resetTtsBtn(btn) {
+  if (btn) { btn.classList.remove('speaking'); btn.textContent = '🔊'; }
+  _currentUtterance = null;
+}
+
+function stopSpeaking() {
+  speechSynthesis.cancel();
+  document.querySelectorAll('.tts-btn.speaking').forEach(resetTtsBtn);
+  _currentUtterance = null;
+}
+
 function safeStr(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string') return v;
@@ -491,7 +598,7 @@ function safeStr(v) {
 }
 
 // ==================== Chat UI ====================
-function addChatMessage(role, content, isStreaming) {
+function addChatMessage(role, content, isStreaming, attachments) {
   const msgs = $('#chat-messages');
   if (!msgs) return null;
   const div = document.createElement('div');
@@ -502,6 +609,17 @@ function addChatMessage(role, content, isStreaming) {
     bubble.innerHTML = isStreaming ? '' : renderMarkdown(String(content || ''));
   } else {
     bubble.textContent = String(content || '');
+  }
+  // Render image attachments
+  if (attachments && attachments.length > 0) {
+    attachments.forEach(att => {
+      const img = document.createElement('img');
+      img.className = 'chat-attachment-img';
+      img.src = att.data || att;
+      img.alt = att.name || '图片';
+      img.addEventListener('click', () => showLightbox(img.src));
+      bubble.appendChild(img);
+    });
   }
   div.appendChild(bubble);
   msgs.appendChild(div);
@@ -524,6 +642,74 @@ function showWelcome() {
   const w = $('#welcome-area'), c = $('#chat-area');
   if (w) w.style.display = '';
   if (c) c.style.display = 'none';
+}
+
+// ==================== Attachments ====================
+const MAX_ATTACHMENTS = 5;
+
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  const remaining = MAX_ATTACHMENTS - state.attachments.length;
+  if (remaining <= 0) { showError('最多添加 ' + MAX_ATTACHMENTS + ' 张图片'); return; }
+  const toProcess = Math.min(files.length, remaining);
+  if (files.length > remaining) { showError('最多添加 ' + MAX_ATTACHMENTS + ' 张图片，已超出' + (files.length - remaining) + '张'); }
+  for (let i = 0; i < toProcess; i++) {
+    const file = files[i];
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    const id = 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    reader.onload = (e) => {
+      state.attachments.push({ id, name: file.name, type: file.type, data: e.target.result });
+      renderPreviews();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function handlePaste(e) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const imageFiles = [];
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) imageFiles.push(file);
+    }
+  }
+  if (imageFiles.length > 0) {
+    e.preventDefault();
+    handleFiles(imageFiles);
+  }
+}
+
+function renderPreviews() {
+  const bar = $('#preview-bar');
+  const list = $('#preview-list');
+  if (!list) return;
+  list.innerHTML = '';
+  state.attachments.forEach((att, idx) => {
+    const item = document.createElement('div');
+    item.className = 'preview-item';
+    item.innerHTML = '<img src="' + att.data + '" alt="' + esc(att.name) + '"><button class="preview-remove" data-idx="' + idx + '">✕</button>';
+    item.querySelector('.preview-remove').addEventListener('click', () => {
+      state.attachments.splice(idx, 1);
+      renderPreviews();
+    });
+    list.appendChild(item);
+  });
+  if (bar) bar.style.display = state.attachments.length > 0 ? '' : 'none';
+}
+
+function showLightbox(src) {
+  const overlay = document.createElement('div');
+  overlay.className = 'lightbox-overlay';
+  overlay.innerHTML = '<img src="' + src + '"><button class="lightbox-close">✕</button>';
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.classList.contains('lightbox-close')) {
+      overlay.remove();
+    }
+  });
+  document.body.appendChild(overlay);
 }
 
 // ==================== Thinking ====================
@@ -618,8 +804,11 @@ function updateDeeperButton(level) {
 
 function resetToWelcome() {
   disconnectStream();
+  stopSpeaking();
   state.chatHistory = [];
   state.inChat = false;
+  state.attachments = [];
+  renderPreviews();
   const input = $('#chat-input');
   if (input) input.value = '';
   const probInput = $('#problem-input');
@@ -762,6 +951,7 @@ async function updateStorageInfo() {
 }
 
 function switchPanel(panel) {
+  if (panel !== 'chat') { stopSpeaking(); }
   const hp = $('#hint-panel'), hip = $('#history-panel'), pp = $('#plan-panel'), hlp = $('#help-panel');
   const wasHelpActive = hlp?.classList.contains('active');
   if (hp) hp.classList.toggle('active', panel === 'chat' || panel === 'hint');
@@ -893,7 +1083,7 @@ function loadHistoryConversation(record) {
     // 渲染所有历史聊天消息
     if (state.chatHistory.length > 0) {
       state.chatHistory.forEach(msg => {
-        addChatMessage(msg.role, msg.content, false);
+        addChatMessage(msg.role, msg.content, false, msg.attachments);
       });
     } else if (record.answer && String(record.answer).trim()) {
       // 兼容旧记录（无chatHistory字段，只有answer）
