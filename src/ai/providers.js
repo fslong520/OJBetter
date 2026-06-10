@@ -394,6 +394,74 @@ class HintGenerator {
       clearTimeout(fetchTimeout);
     }
   }
+
+  // ==================== 学习报告分析（非流式） ====================
+  async analyzeReport(problemText, chatHistory) {
+    const config = await this.getConfig();
+    const cleanText = String(problemText || '')
+      .replace(/<[^>]+>/g, '').trim().slice(0, 4000);
+    const systemPrompt = `你是一位信奥赛教学分析师。分析以下 OJ 题目和学生与 AI 教练的对话记录，生成一份结构化的学习分析报告。要求：
+
+## 涉及知识点
+列出这道题涉及的核心算法和数据结构
+
+## 学习情况分析
+- 学生的理解程度：优秀/良好/一般/薄弱
+- 学生表现出的优势和不足
+- 关键的学习突破点（如果有）
+
+## 薄弱环节
+- 学生容易出错或理解不充分的地方
+
+## 练习建议
+- 针对薄弱环节推荐 2-3 个练习方向
+
+请用中文回答，保持客观专业，语气鼓励但不夸大。不要编造不存在的信息。`;
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: `## 题目\n${cleanText || '（未提供）'}` }
+    ];
+
+    if (chatHistory && chatHistory.length > 0) {
+      const convText = chatHistory.map(m =>
+        `${m.role === 'user' ? '学生' : '教练'}: ${String(m.content || '').slice(0, 1000)}`
+      ).join('\n\n---\n\n');
+      messages.push({ role: 'user', content: `## 对话记录\n${convText}` });
+    }
+
+    // 直接非流式 fetch，避免 SSE/流式解析的兼容问题
+    const url = `${config.baseURL}/chat/completions`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
+    };
+    if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
+
+    const body = {
+      model: config.model,
+      messages,
+      stream: false,
+      temperature: 0.1,
+      max_tokens: config.maxTokens || 32768
+    };
+    if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST', headers, body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || '';
+    } catch (e) {
+      console.error('[OJBetter Analyze Error]', e);
+      throw e;
+    }
+  }
 }
 
 const hintGenerator = new HintGenerator();
