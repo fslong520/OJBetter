@@ -2,7 +2,7 @@
  * Side Panel - 教练多轮对话模式
  */
 
-import { exportLearningReport } from '../src/export/pdf-export.js';
+import { exportLearningReport } from '../src/export/report-export.js';
 import { getSettings } from '../src/storage/settings.js';
 
 const state = { problemText: '', chatHistory: [], inChat: false, attachments: [] };
@@ -244,11 +244,19 @@ async function handleExport() {
   }
   const btn = $('#export-btn');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; btn.style.opacity = '0.6'; }
+
+  // 弹窗提示 AI 分析中
+  const loadingText = $('#loading-text');
+  if (loadingText) loadingText.textContent = 'AI 正在分析对话...';
+  showLoading();
+
   try {
     await exportLearningReport(state.problemText, state.chatHistory);
   } catch (e) {
     showError('导出失败: ' + e.message);
   } finally {
+    hideLoading();
+    if (loadingText) loadingText.textContent = '小智正在思考...';
     if (btn) { btn.textContent = '📄'; btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
