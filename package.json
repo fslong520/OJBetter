@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "crx": "^5.0.1",
-    "crx3": "^2.0.0",
     "jspdf": "^4.2.1"
+  },
+  "devDependencies": {
+    "crx3": "^2.0.0"
   }
 }
