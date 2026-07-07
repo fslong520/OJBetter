@@ -286,9 +286,12 @@ export class BrainstormEngine {
       // 保存状态
       await this._saveState();
 
+      this.status = 'student_turn';
+
       if (onDone) onDone(full);
     } catch (e) {
       console.error('[Brainstorm Fetch Error]', e);
+      this.status = 'student_turn';
       if (e.name === 'AbortError') {
         if (onError) onError(new Error('请求超时，请重试'));
       } else if (onError) {

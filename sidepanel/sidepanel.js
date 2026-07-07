@@ -76,7 +76,7 @@ function bindEvents() {
   const hb = $('#history-btn'); if (hb) hb.addEventListener('click', showHistory);
   const pb = $('#plan-btn'); if (pb) pb.addEventListener('click', showPlan);
   const eb = $('#export-btn'); if (eb) eb.addEventListener('click', handleExport);
-  const sb = $('#settings-btn'); if (sb) sb.addEventListener('click', openSettings);
+  const settingsBtn = $('#settings-btn'); if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
   const helpBtn = $('#help-btn'); if (helpBtn) helpBtn.addEventListener('click', showHelp);
   const hBack = $('#history-back-btn'); if (hBack) hBack.addEventListener('click', () => switchPanel('chat'));
   const pBack = $('#plan-back-btn'); if (pBack) pBack.addEventListener('click', () => switchPanel('chat'));
@@ -196,9 +196,9 @@ function startBrainstorm(problemText) {
   }
 
   // 启动 AI 开场
+  showThinking(true);
   _brainEngine.start(problemText, {
     onThinking: (text) => {
-      showThinking(true);
       appendThinking(text);
     },
     onContent: (text) => {
@@ -301,9 +301,9 @@ function sendBrainstormMessage() {
   }
 
   // 正常继续头脑风暴
+  showThinking(true);
   _brainEngine.onStudentMessage(text, attachments, {
     onThinking: (t) => {
-      showThinking(true);
       appendThinking(t);
     },
     onContent: (t) => {
@@ -1031,8 +1031,7 @@ function appendThinking(text) {
   const node = document.createTextNode(text);
   content.appendChild(node);
 
-  // Truncate old nodes to keep DOM light (visual trick: we only show the tail)
-  const maxLen = 150;
+  const maxLen = 3000;
   if (content.innerText.length > maxLen) {
     // We keep the text node but hide the overflow or remove old nodes
     // Simplest: remove first child until text length is reasonable
@@ -1044,7 +1043,9 @@ function appendThinking(text) {
        }
     }
   }
-  content.scrollTop = content.scrollHeight;
+  // 仅在用户已近底部时自动滚，避免小块内容强滚导致闪烁
+  const isNearBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 30;
+  if (isNearBottom) content.scrollTop = content.scrollHeight;
 }
 function appendHintContent(text) {
   const area = $('#hint-content'); if (!area) return;
