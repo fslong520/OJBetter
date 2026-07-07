@@ -29,12 +29,24 @@
       <div id="welcome-area" class="welcome-message">
         <div class="welcome-icon">🦉</div>
         <h2>你好！我是小智 👋</h2>
-        <p>我会一步步引导你理解编程题。</p>
+        <p>你想怎么学？选一种方式开始吧</p>
         <div class="capture-area">
           <div class="capture-input-row">
-            <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="3"></textarea>
+            <textarea id="problem-input" placeholder="点击下方按钮自动捕获题目，或者手动粘贴题目内容..." rows="2"></textarea>
           </div>
-          <button id="start-coach-btn" class="start-btn">✨ 灵光一下，开始思考</button>
+          <!-- 双入口卡片 -->
+          <div class="mode-cards">
+            <button id="start-coach-btn" class="mode-card mode-card--coach">
+              <span class="mode-card-icon">🔍</span>
+              <span class="mode-card-title">启发式引导</span>
+              <span class="mode-card-desc">带方向地学，一步步来</span>
+            </button>
+            <button id="start-brainstorm-btn" class="mode-card mode-card--brain">
+              <span class="mode-card-icon">✨</span>
+              <span class="mode-card-title">灵光一闪</span>
+              <span class="mode-card-desc">天马行空地聊，拓思维</span>
+            </button>
+          </div>
           <button id="translate-btn" class="capture-btn" style="margin-top:6px;">🌐 翻译成中文</button>
         </div>
       </div>
@@ -116,6 +128,7 @@
           <h4>🎯 功能介绍</h4>
           <ul class="help-features">
             <li><strong>💬 AI 教练：</strong>多轮对话引导你独立思考，不直接给答案</li>
+            <li><strong>✨ 灵光一闪：</strong>AI 头脑风暴——质疑者、联想者、出题人三重角色轮换，深度拓展算法思维</li>
             <li><strong>🌐 翻译：</strong>将英文题目翻译成中文</li>
             <li><strong>📜 历史记录：</strong>查看所有提问记录和对话历史</li>
             <li><strong>📊 学习计划：</strong>根据你的弱点生成个性化学习路线</li>
@@ -125,6 +138,10 @@
         <div class="help-section">
           <h4>🤖 教练模式</h4>
           <p class="help-text">小智不会直接给出答案，而是通过提问、画图、伪代码等方式，引导你自己思考并解决问题。这种教学方法有助于培养编程思维。</p>
+        </div>
+        <div class="help-section">
+          <h4>✨ 灵光一闪（头脑风暴）</h4>
+          <p class="help-text">做完题后想拓展思维？试试灵光一闪！小智会轮流扮演「质疑者」「联想者」「出题人」三种角色，和你一起探索题目的更多可能性。不是考试，不是辩论——是一起"胡思乱想"。</p>
         </div>
         <div class="help-section">
           <h4>❓ 常见问题</h4>

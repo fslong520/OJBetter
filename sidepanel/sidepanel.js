@@ -4,8 +4,17 @@
 
 import { exportLearningReport } from '../src/export/report-export.js';
 import { getSettings } from '../src/storage/settings.js';
+import { BrainstormEngine } from '../src/brainstorm/BrainstormEngine.js';
 
+// 教练模式状态
 const state = { problemText: '', chatHistory: [], inChat: false, attachments: [] };
+// 头脑风暴状态（独立于教练模式）
+let _brainState = null;
+let _brainEngine = null;
+// 教练模式备份（用于模式切换时保存/恢复）
+let _coachState = null;
+let _currentMode = 'coach'; // 'coach' | 'brainstorm'
+
 const $ = (sel) => document.querySelector(sel);
 let _streamPort = null;  // 保留兼容
 let _streamId = null;
@@ -45,8 +54,12 @@ function checkPendingHint() {
 // ==================== Events ====================
 function bindEvents() {
   const sc = $('#start-coach-btn'); if (sc) sc.addEventListener('click', () => { clearError(); captureAndCoach(); });
+  const sb = $('#start-brainstorm-btn'); if (sb) sb.addEventListener('click', () => { clearError(); captureAndBrainstorm(); });
   const trans = $('#translate-btn'); if (trans) trans.addEventListener('click', () => { clearError(); captureAndTranslate(); });
-  const send = $('#chat-send-btn'); if (send) send.onclick = sendCoachMessage;
+  const send = $('#chat-send-btn'); if (send) send.onclick = () => {
+    if (_currentMode === 'brainstorm') sendBrainstormMessage();
+    else sendCoachMessage();
+  };
   const attachBtn = $('#attach-btn'); if (attachBtn) attachBtn.addEventListener('click', () => { $('#file-input')?.click(); });
   const fileInput = $('#file-input'); if (fileInput) fileInput.addEventListener('change', (e) => { handleFiles(e.target.files); e.target.value = ''; });
   const input = $('#chat-input'); if (input) {
@@ -88,6 +101,286 @@ function bindEvents() {
       updateStorageInfo();
     }
   });
+}
+
+// ==================== Mode Switching ====================
+function saveCurrentModeState() {
+  if (_currentMode === 'coach') {
+    _coachState = {
+      problemText: state.problemText,
+      chatHistory: state.chatHistory.slice(),
+      inChat: state.inChat,
+      attachments: state.attachments.slice()
+    };
+  }
+}
+
+function restoreModeState(mode) {
+  if (mode === 'coach' && _coachState) {
+    state.problemText = _coachState.problemText || '';
+    state.chatHistory = _coachState.chatHistory.slice();
+    state.inChat = _coachState.inChat || false;
+    state.attachments = _coachState.attachments.slice();
+  }
+}
+
+function switchToBrainstorm() {
+  if (_currentMode === 'brainstorm') return;
+  disconnectStream(); // 终止 coach 流
+  stopSpeaking();
+  saveCurrentModeState();
+  _currentMode = 'brainstorm';
+  state.chatHistory = [];
+  state.attachments = [];
+}
+
+function switchToCoach() {
+  if (_currentMode === 'coach') return;
+  _currentMode = 'coach';
+  // 清空 brainstorm 痕迹
+  if (_brainEngine) { _brainEngine = null; }
+  _brainState = null;
+  restoreModeState('coach');
+}
+
+// ==================== Brainstorm ====================
+async function captureAndBrainstorm() {
+  const input = $('#problem-input');
+  const manualText = input ? String(input.value).trim() : '';
+  if (manualText && manualText.length > 20) {
+    startBrainstorm(manualText);
+    return;
+  }
+  showLoading();
+  try {
+    const resp = await sendMessageSafe({ type: 'getCurrentPageContent' });
+    hideLoading();
+    let raw = resp?.content ? String(resp.content) : '';
+    if (typeof resp?.content === 'object' && resp.content !== null) {
+      raw = typeof resp.content.content === 'string' ? resp.content.content : JSON.stringify(resp.content);
+    }
+    if (!raw || raw === '[object Object]') { showError('未获取到页面内容，请在输入框粘贴题目'); return; }
+    if (input) input.value = raw.replace(/<[^>]+>/g, '').slice(0, 200);
+    startBrainstorm(raw);
+  } catch (_) { hideLoading(); showError('捕获失败，请在输入框粘贴题目'); }
+}
+
+function startBrainstorm(problemText) {
+  problemText = String(problemText || '');
+  if (!problemText) return;
+
+  switchToBrainstorm();
+
+  state.problemText = problemText;
+  state.inChat = true;
+  state.chatHistory = [];
+  const msgs = $('#chat-messages');
+  if (msgs) msgs.innerHTML = '';
+  showChatArea();
+
+  const preview = problemText.replace(/<[^>]+>/g, '').slice(0, 200);
+  const title = $('#chat-title');
+  if (title) title.textContent = '✨ 灵光一闪 — ' + (preview || '头脑风暴');
+
+  const input = $('#chat-input');
+  if (input) input.placeholder = '跟小智一起头脑风暴...';
+
+  // 创建引擎实例
+  _brainEngine = new BrainstormEngine();
+
+  // 创建 AI 消息容器用于流式写入
+  _currentAssistantEl = addChatMessage('assistant', '', true);
+  const initBubble = _currentAssistantEl?.querySelector('.chat-bubble');
+  if (initBubble) {
+    initBubble.innerHTML = '<span class="thinking-indicator">小智正在思考<span class="dot-anim">...</span></span>';
+  }
+
+  // 启动 AI 开场
+  _brainEngine.start(problemText, {
+    onThinking: (text) => {
+      showThinking(true);
+      appendThinking(text);
+    },
+    onContent: (text) => {
+      // 检查是否是灵光卡片
+      if (text.includes('💡') || text.includes('灵光一现')) {
+        streamSparkCard(text);
+      } else {
+        streamToAssistantEl(text);
+      }
+    },
+    onDone: (full) => {
+      showThinking(false);
+      // 头脑风暴模式：保留自定义元素，不做全量 innerHTML 替换
+      const el = _currentAssistantEl;
+      if (el) {
+        const bubble = el.querySelector('.chat-bubble');
+        const role = _brainEngine ? _brainEngine.currentRoleName : '';
+        // 角色标识
+        if (role) {
+          let header = el.querySelector('.bubble-header');
+          if (!header) {
+            header = document.createElement('div');
+            header.className = 'bubble-header';
+            el.insertBefore(header, bubble);
+          }
+          header.innerHTML = '🦉 小智 <span class="role-badge role-badge--' + (_brainEngine?.currentRole || 'skeptic') + '">' + role + '</span>';
+        }
+        // 保留流式文本（不做 markdown 渲染，避免破坏 spark card）
+        if (bubble) {
+          const streamText = bubble._raw || '';
+          if (streamText && !bubble.classList.contains('brain-bubble')) {
+            // 只做简单处理：保留换行
+            bubble.innerHTML = bubble.innerHTML.replace(/\n/g, '<br>');
+            bubble.classList.add('brain-bubble');
+          }
+        }
+      }
+      _currentAssistantEl = null;
+      // 记录到 chatHistory
+      if (full) {
+        state.chatHistory.push({ role: 'assistant', content: full, character: _brainEngine?.currentRoleName || '' });
+      }
+      scrollChatToBottom();
+      setChatInputEnabled(true);
+    },
+    onError: (e) => {
+      showThinking(false);
+      showError(e.message);
+      setChatInputEnabled(true);
+    },
+    onSpark: (spark) => {
+      // 灵光标记回调 — bubble 中已有卡片，无需额外操作
+    }
+  });
+}
+
+function sendBrainstormMessage() {
+  if (!state.inChat || !_brainEngine) return;
+  if (_brainEngine.status !== 'student_turn') return;
+
+  const input = $('#chat-input');
+  const text = input ? String(input.value).trim() : '';
+  const hasAttachments = state.attachments.length > 0;
+  if (!text && !hasAttachments) return;
+  input.value = '';
+
+  const attachments = state.attachments.slice();
+  state.attachments = [];
+  renderPreviews();
+
+  // 添加用户消息
+  addChatMessage('user', text, false, attachments);
+  state.chatHistory.push({ role: 'user', content: text, attachments });
+
+  setChatInputEnabled(false);
+
+  // 创建 AI 回复容器
+  _currentAssistantEl = addChatMessage('assistant', '', true);
+  const bubble = _currentAssistantEl?.querySelector('.chat-bubble');
+  if (bubble) {
+    bubble.innerHTML = '<span class="thinking-indicator">小智正在思考<span class="dot-anim">...</span></span>';
+  }
+
+  // 检查是否结束
+  const endTriggers = ['先到这儿', '就到这吧', '今天就到这', '先这样吧', '下次再聊'];
+  const shouldEnd = endTriggers.some(t => text.includes(t));
+  if (shouldEnd) {
+    _brainEngine.end({
+      onContent: (summaryText) => {
+        // 以合集卡片形式展示
+        addSummaryCard(summaryText);
+      },
+      onDone: (full) => {
+        state.chatHistory.push({ role: 'assistant', content: full, isSummary: true });
+        setChatInputEnabled(true);
+        input.placeholder = '输入你的想法...';
+      }
+    });
+    return;
+  }
+
+  // 正常继续头脑风暴
+  _brainEngine.onStudentMessage(text, attachments, {
+    onThinking: (t) => {
+      showThinking(true);
+      appendThinking(t);
+    },
+    onContent: (t) => {
+      if (t.includes('💡') || t.includes('灵光一现')) {
+        streamSparkCard(t);
+      } else {
+        streamToAssistantEl(t);
+      }
+    },
+    onDone: (full) => {
+      showThinking(false);
+      // 同 startBrainstorm：不做全量 markdown 渲染，保留 spark card
+      const el = _currentAssistantEl;
+      if (el) {
+        const bubble = el.querySelector('.chat-bubble');
+        if (bubble && bubble._raw && !bubble.classList.contains('brain-bubble')) {
+          bubble.innerHTML = bubble.innerHTML.replace(/\n/g, '<br>');
+          bubble.classList.add('brain-bubble');
+        }
+        // 角色标识（仅当引擎状态表明已切换角色时添加）
+        const role = _brainEngine ? _brainEngine.currentRoleName : '';
+        if (role && !el.querySelector('.bubble-header')) {
+          const header = document.createElement('div');
+          header.className = 'bubble-header';
+          el.insertBefore(header, bubble);
+          header.innerHTML = '🦉 小智 <span class="role-badge role-badge--' + (_brainEngine?.currentRole || 'skeptic') + '">' + role + '</span>';
+        }
+      }
+      _currentAssistantEl = null;
+      if (full) {
+        state.chatHistory.push({ role: 'assistant', content: full, character: _brainEngine?.currentRoleName || '' });
+      }
+      scrollChatToBottom();
+      setChatInputEnabled(true);
+    },
+    onError: (e) => {
+      showThinking(false);
+      showError(e.message);
+      setChatInputEnabled(true);
+    }
+  });
+}
+
+function streamSparkCard(text) {
+  if (!_currentAssistantEl) return;
+  const bubble = _currentAssistantEl.querySelector('.chat-bubble');
+  if (!bubble) return;
+  // 创建灵光卡片
+  let card = bubble.querySelector('.spark-card');
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'spark-card';
+    bubble.appendChild(card);
+  }
+  const clean = text.replace(/[┌─│└💡灵光一现]/g, '').trim();
+  if (clean) {
+    card.textContent += clean;
+  }
+  scrollChatToBottom();
+}
+
+function addSummaryCard(summaryText) {
+  const msgs = $('#chat-messages');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = 'chat-message chat-message--assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble brain-summary-bubble';
+  // 格式化合集
+  const html = summaryText
+    .replace(/\n/g, '<br>')
+    .replace(/💡/g, '<br>💡')
+    .replace(/🌱/g, '<br><br>🌱');
+  bubble.innerHTML = '<div class="brainstorm-summary">' + html + '</div>';
+  div.appendChild(bubble);
+  msgs.appendChild(div);
+  scrollChatToBottom();
 }
 
 // ==================== Coach ====================
@@ -180,6 +473,8 @@ function streamTranslate(problemText) {
 function startCoach(problemText) {
   problemText = String(problemText || '');
   if (!problemText) return;
+  // 切换回教练模式（若有 brainstorm 进行中，自动保存）
+  switchToCoach();
   // 强制清理所有旧状态
   state.problemText = problemText;
   state.chatHistory = [];
@@ -203,6 +498,7 @@ function startCoach(problemText) {
 
 function sendCoachMessage() {
   if (!state.inChat) return;
+  if (_currentMode === 'brainstorm') { sendBrainstormMessage(); return; }
   if (_streamId) return;
   const input = $('#chat-input');
   const text = input ? String(input.value).trim() : '';
@@ -813,12 +1109,17 @@ function updateDeeperButton(level) {
 function resetToWelcome() {
   disconnectStream();
   stopSpeaking();
+  if (_currentMode === 'brainstorm') {
+    _brainEngine = null;
+    _brainState = null;
+  }
+  _currentMode = 'coach';
   state.chatHistory = [];
   state.inChat = false;
   state.attachments = [];
   renderPreviews();
   const input = $('#chat-input');
-  if (input) input.value = '';
+  if (input) { input.value = ''; input.placeholder = '输入你的想法...'; }
   const probInput = $('#problem-input');
   if (probInput) probInput.value = '';
   const msgs = $('#chat-messages');

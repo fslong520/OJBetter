@@ -682,6 +682,188 @@ body {
   color: var(--text-tertiary);
 }
 
+/* ==================== 双入口卡片 ==================== */
+.mode-cards {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.mode-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  text-align: center;
+}
+
+.mode-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.mode-card--coach:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.mode-card--brain:hover {
+  border-color: #F59E0B;
+  background: #FFFBEB;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mode-card--brain:hover {
+    background: #2D2B1E;
+    border-color: #F59E0B;
+  }
+}
+
+.mode-card-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mode-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mode-card-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* ==================== 头脑风暴角色标记 ==================== */
+.chat-message--assistant .bubble-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chat-message--assistant .role-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.chat-message--assistant .role-badge--skeptic {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.chat-message--assistant .role-badge--associator {
+  background: #DBEAFE;
+  color: #1E40AF;
+}
+
+.chat-message--assistant .role-badge--questionSetter {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat-message--assistant .role-badge--skeptic {
+    background: #3D2E00;
+    color: #FBBF24;
+  }
+  .chat-message--assistant .role-badge--associator {
+    background: #1E3A5F;
+    color: #93C5FD;
+  }
+  .chat-message--assistant .role-badge--questionSetter {
+    background: #064E3B;
+    color: #6EE7B7;
+  }
+}
+
+/* ==================== 灵光卡片 ==================== */
+.spark-card {
+  margin: 8px 0 4px;
+  padding: 8px 12px;
+  border-left: 3px solid #F59E0B;
+  background: #FFFBEB;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #92400E;
+}
+
+.spark-card::before {
+  content: '💡 灵光一现';
+  display: block;
+  font-weight: 600;
+  font-size: 11px;
+  margin-bottom: 2px;
+  color: #D97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  .spark-card {
+    background: #2D2B1E;
+    color: #FDE68A;
+    border-left-color: #F59E0B;
+  }
+  .spark-card::before {
+    color: #FBBF24;
+  }
+}
+
+/* ==================== 灵光合集 ==================== */
+.brainstorm-summary {
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 8px 0;
+  box-shadow: var(--shadow);
+}
+
+.brainstorm-summary h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+
+.brainstorm-summary .spark-item {
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border);
+}
+
+.brainstorm-summary .spark-item:last-child {
+  border-bottom: none;
+}
+
+.brainstorm-summary .continue-item {
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 /* Welcome page input row — textarea side by side */
 .capture-input-row {
   display: flex;
