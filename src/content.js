@@ -131,19 +131,25 @@
     if (!btnContainer.parentElement) problemEl.appendChild(btnContainer);
   }
 
-  // ==================== HTML Capture ====================
+  // ==================== Page Content Capture ====================
   function captureProblemHTML() {
     try {
-      // 直接从 body 取纯文本，再清洗字符
-      let text = document.body.innerText || '';
+      // 优先从题目元素取文本，避免页面导航/广告干扰
+      const problemEl = detectProblemContent();
+      const source = problemEl ? problemEl.textContent : document.body.textContent;
+      let text = source || '';
+
+      // textContent 不会像 innerText 那样在 <msub>/<msup> 等 KaTeX 元素间插入换行，
+      // 可保留数学表达式完整性（如 x_{n+1} → "xn+1" 而非 "x\nn+1\n"）
+
       // 只保留：中文、英文、数字、常见标点、换行、emoji
       text = text.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s.,;:!?()\[\]{}<>"'_\-+*/=@#$%^&|\\~`\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B50}\u{2B06}\u{2194}\u{21AA}\u{2935}\u{25C0}\u{25B6}\u{23E9}\u{23EA}\u{23EB}\u{23EC}\u{2705}\u{274C}\u{2B55}\u{2753}\u{2757}\u{2795}\u{2796}\u{2797}\u{2716}\u{1F300}-\u{1F9FF}]+/gu, ' ');
-      // 压缩多余空白
+      // 压缩多余空白（但保留一个换行分隔段落）
       text = text.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
       if (text.length > 8000) text = text.slice(0, 8000);
       return text;
     } catch (e) {
-      return (document.body?.innerText || '').slice(0, 3000);
+      return (document.body?.textContent || '').slice(0, 3000);
     }
   }
 
