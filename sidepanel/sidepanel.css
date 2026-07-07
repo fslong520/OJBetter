@@ -925,18 +925,16 @@ body {
 
 /* Thinking area */
 .thinking-area {
-  margin: 0 12px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--border);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .thinking-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 10px;
   background: var(--bg-card);
   cursor: pointer;
   font-size: 12px;
@@ -963,11 +961,11 @@ body {
 }
 
 .thinking-content {
-  padding: 10px 12px;
-  max-height: 120px;
+  padding: 8px 10px;
+  max-height: 150px;
   overflow-y: auto;
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.7;
   color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
