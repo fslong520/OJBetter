@@ -128,7 +128,7 @@ chrome.runtime.onConnect.addListener((port) => {
 
 // ==================== Storage-based Stream ====================
 async function startStreaming(message, sender) {
-  const { streamId, problemText, hintLevel, previousHints, chatHistory, coachMode, isTranslate, attachments = [], stage } = message;
+  const { streamId, problemText, hintLevel, previousHints, chatHistory, coachMode, isTranslate, attachments = [] } = message;
   const key = 'stream:' + streamId;
   const set = (obj) => chrome.storage.local.set({ [key]: obj });
 
@@ -206,7 +206,7 @@ async function startStreaming(message, sender) {
     if (isTranslate) {
       await hintGenerator.translateStream(problemText, attachments, onThinking, onContent, onDone, onError);
     } else if (coachMode) {
-      await hintGenerator.coachChat(problemText, chatHistory || [], attachments, onThinking, onContent, onDone, onError, stage);
+      await hintGenerator.coachChat(problemText, chatHistory || [], attachments, onThinking, onContent, onDone, onError);
     } else {
       await hintGenerator.generateHintStream(problemText, hintLevel || 2, previousHints || [], onThinking, onContent, onDone, onError);
     }

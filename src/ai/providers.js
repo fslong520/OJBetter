@@ -3,7 +3,7 @@
  */
 import { ZEN_BASE_URL } from '../config/models.js';
 import { getSettings } from '../storage/settings.js';
-import { buildCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getHardenedPersona, getStageStrategy } from '../coach/personas.js';
+import { getUnifiedCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getHardenedPersona } from '../coach/personas.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
 // ==================== 通用提示 ====================
@@ -172,7 +172,7 @@ class HintGenerator {
   }
 
   // ==================== 教练多轮对话 ====================
-  async coachChat(problemText, chatHistory, attachments = [], onThinking, onContent, onDone, onError, stage) {
+  async coachChat(problemText, chatHistory, attachments = [], onThinking, onContent, onDone, onError) {
     try {
       const config = await this.getConfig();
       const settings = await getSettings();
@@ -187,13 +187,8 @@ class HintGenerator {
         // 提交代码：调试专用提示词，但前置 persona 确保风格一致
         systemPrompt = getPersona(personaKey) + '\n\n调试核心规则：\n' + DEBUG_COACH_PROMPT;
       } else {
-        if (stage !== undefined) {
-          // 阶段模式：策略 + 风格（persona 置后保 recency effect）
-          systemPrompt = getStageStrategy(stage) + '\n\n' + getHardenedPersona(personaKey) + '\n\n' + KATEX_NOTE;
-        } else {
-          // 传统模式：全量策略
-          systemPrompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
-        }
+        // 自适应引导：统一策略（无阶段，AI 动态评估学生状态）
+        systemPrompt = getUnifiedCoachPrompt(personaKey);
       }
       
       // 解码 HTML 实体，再清理标签

@@ -4,7 +4,7 @@
 import { getAllHistory, extractTopic } from '../storage/history.js';
 import { getSettings } from '../storage/settings.js';
 import { ZEN_BASE_URL } from '../config/models.js';
-import { buildCoachPrompt, DEFAULT_PERSONA_KEY } from '../coach/personas.js';
+import { getUnifiedCoachPrompt, DEFAULT_PERSONA_KEY } from '../coach/personas.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
 class LearningPlanGenerator {
@@ -76,7 +76,7 @@ class LearningPlanGenerator {
     // 使用教练的系统prompt，确保输出不受限
     const settings = await getSettings();
     const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
-    const systemPrompt = buildCoachPrompt(personaKey);
+    const systemPrompt = getUnifiedCoachPrompt(personaKey);
 
     const userPrompt = `请根据以下学习记录，为这位同学制定**明天**的学习计划。
 
