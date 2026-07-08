@@ -4,6 +4,7 @@
 import { ZEN_BASE_URL } from '../config/models.js';
 import { getSettings } from '../storage/settings.js';
 import { buildCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getHardenedPersona, getStageStrategy } from '../coach/personas.js';
+import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
 // ==================== 通用提示 ====================
 const KATEX_NOTE = `\n\n【⚠️渲染提示】题目内容中可能包含因 LaTeX/KaTeX 渲染导致的文本重复现象（例如同一个公式或文字出现了两次）。请自动识别并忽略这类重复内容，将其合并为一份进行理解，不要将其误认为是题目有两个不同的条件。`;
@@ -195,8 +196,25 @@ class HintGenerator {
         }
       }
       
-      // 清理 HTML，只保留纯文本
-      const cleanText = String(problemText).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      // 解码 HTML 实体，再清理标签
+      const decodeEntities = (text) => {
+        const el = typeof document !== 'undefined' ? document.createElement('textarea') : null;
+        if (el) {
+          el.innerHTML = text;
+          return el.value;
+        }
+        // Fallback for non-browser environments
+        return text
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+          .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
+      };
+      const cleanText = decodeEntities(String(problemText)).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
       const messages = [
         { role: 'system', content: systemPrompt }
       ];
@@ -326,106 +344,7 @@ class HintGenerator {
   }
 
   async _streamRequest(config, messages, onThinking, onContent, onDone, onError, getCancelled) {
-    const url = `${config.baseURL}/chat/completions`;
-    const headers = { 
-      'Content-Type': 'application/json',
-      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
-    };
-    if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
-
-    // 使用配置中的参数，而非硬编码
-    const body = {
-      model: config.model,
-      messages,
-      stream: true,
-      temperature: config.temperature ?? 0.1,
-      max_tokens: config.maxTokens || 32768
-    };
-    if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
-
-    const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 1800000); // 30 分钟，兼容长思考模型
-    try {
-      const response = await fetch(url, {
-        method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `连接出问题了（${response.status}），检查一下设置里的 API 配置？`);
-      }
-
-      // 检测非SSE响应（如验证码页面）
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('text/event-stream') && !contentType.includes('application/json')) {
-        const text = await response.text().catch(() => '');
-        if (text.includes('captcha') || text.includes('验证码') || text.includes('<html')) {
-          throw new Error('小智被验证码拦住了，等一会儿再试试？');
-        }
-        throw new Error('小智收到了看不懂的回复，换个模型试试？');
-      }
-
-      if (!response.body) {
-        throw new Error('小智没有收到回复，检查一下网络再试试');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let full = '', buf = '';
-
-      // 读取超时：如果 1800 秒（30分钟）没有收到任何数据，终止流
-      // 带思考的模型（如 o1）思考时间可能很长，给予充足时间
-      let readTimeout = null;
-      const resetReadTimeout = () => {
-        clearTimeout(readTimeout);
-        readTimeout = setTimeout(() => {
-          controller.abort();
-        }, 1800000);
-      };
-      resetReadTimeout();
-
-      while (true) {
-        if (getCancelled && getCancelled()) break;
-        const { done, value } = await reader.read(); if (done) break;
-        resetReadTimeout();
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n'); buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const d = line.slice(6).trim(); if (d === '[DONE]') continue;
-          try {
-            const j = JSON.parse(d); const delta = j.choices?.[0]?.delta;
-            if (!delta) continue;
-            // 根据配置决定是否处理思考过程
-            if (config.enableThinking && (delta.reasoning_content || delta.reasoning)) {
-              onThinking(delta.reasoning_content || delta.reasoning);
-            }
-            if (delta.content) { full += delta.content; onContent(delta.content); }
-          } catch (_) {}
-        }
-      }
-      clearTimeout(readTimeout);
-      onDone(full);
-    } catch (e) {
-      console.error('[OJBetter Fetch Error]', {
-        url,
-        errorName: e.name,
-        errorMessage: e.message,
-        errorStack: e.stack
-      });
-      if (e.name === 'AbortError') onError(new Error('小智想太久了，点一下重新试试吧'));
-      else if (e.message?.includes('CORS') || e.message?.includes('address space') || e.message?.includes('blocked')) {
-        onError(new Error('网络不通畅，去设置里换个连接方式试试？'));
-      }
-      else if (e.message === 'Failed to fetch') {
-        // 可能是DNS、SSL、服务器宕机等原因
-        onError(new Error('暂时连不上小智的脑子，检查一下网络，或者去设置里换个方式连接'));
-      }
-      else onError(e);
-    } finally {
-      clearTimeout(fetchTimeout);
-    }
+    await streamChatCompletion(config, messages, { onThinking, onContent, onDone, onError, getCancelled });
   }
 
   // ==================== 学习报告分析（非流式） ====================

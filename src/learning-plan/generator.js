@@ -5,6 +5,7 @@ import { getAllHistory, extractTopic } from '../storage/history.js';
 import { getSettings } from '../storage/settings.js';
 import { ZEN_BASE_URL } from '../config/models.js';
 import { buildCoachPrompt, DEFAULT_PERSONA_KEY } from '../coach/personas.js';
+import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
 class LearningPlanGenerator {
   async analyzeHistory() {
@@ -150,76 +151,7 @@ ${currentChatText}
   }
 
   async _streamRequest(config, messages, onThinking, onContent, onDone, onError) {
-    const url = `${config.baseURL}/chat/completions`;
-    const headers = { 'Content-Type': 'application/json' };
-    if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
-
-    // 使用配置中的参数
-    const body = {
-      model: config.model,
-      messages,
-      stream: true,
-      temperature: config.temperature ?? 0.1,
-      max_tokens: config.maxTokens || 32768
-    };
-    if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
-
-    const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 1800000);
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error?.message || `HTTP ${response.status}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let full = '', buf = '';
-      let readTimeout = null;
-
-      const resetReadTimeout = () => {
-        clearTimeout(readTimeout);
-        readTimeout = setTimeout(() => controller.abort(), 1800000);
-      };
-      resetReadTimeout();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        resetReadTimeout();
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const d = line.slice(6).trim();
-          if (d === '[DONE]') continue;
-          try {
-            const j = JSON.parse(d);
-            const delta = j.choices?.[0]?.delta;
-            if (!delta) continue;
-            // 根据配置决定是否处理思考过程
-            if (config.enableThinking && (delta.reasoning_content || delta.reasoning)) {
-              onThinking(delta.reasoning_content || delta.reasoning);
-            }
-            if (delta.content) { full += delta.content; onContent(delta.content); }
-          } catch (_) {}
-        }
-      }
-      clearTimeout(readTimeout);
-      onDone(full);
-    } catch (e) {
-      if (e.name === 'AbortError') onError(new Error('请求超时，请重试'));
-      else onError(e);
-    } finally {
-      clearTimeout(fetchTimeout);
-    }
+    await streamChatCompletion(config, messages, { onThinking, onContent, onDone, onError });
   }
 }
 

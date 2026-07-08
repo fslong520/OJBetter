@@ -7,6 +7,7 @@
 
 import { getRolePrompt, ROLE_SEQUENCE, MIN_ROUNDS_PER_ROLE, ROLE_NAMES, ROLE_SWITCH_LINES } from './BrainstormPrompts.js';
 import { getSettings } from '../storage/settings.js';
+import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
 const STORAGE_PREFIX = 'brain_';
 
@@ -204,82 +205,32 @@ export class BrainstormEngine {
   async _streamRequest({ systemPrompt, messages, onThinking, onContent, onDone, onError }) {
     try {
       const config = await this._getConfig();
-      const url = `${config.baseURL}/chat/completions`;
-      const headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'OJBetter/1.1.5 (Chrome Extension)'
-      };
-      if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
+      let fullText = '';
+      let streamError = null;
 
-      const body = {
-        model: config.model,
-        messages,
-        stream: true,
-        temperature: config.temperature ?? 0.7,
-        max_tokens: config.maxTokens || 16384
-      };
-      if (config.topP !== undefined && config.topP < 1.0) body.top_p = config.topP;
-
-      const controller = new AbortController();
-      const fetchTimeout = setTimeout(() => controller.abort(), 1800000); // 30 分钟
-
-      const response = await fetch(url, {
-        method: 'POST', headers, signal: controller.signal,
-        body: JSON.stringify(body)
+      await streamChatCompletion(config, messages, {
+        onThinking,
+        onContent,
+        onDone: (text) => {
+          fullText = text;
+          if (onDone) onDone(text);
+        },
+        onError: (e) => {
+          streamError = e;
+          if (onError) onError(e);
+        }
       });
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${response.status}`);
+      if (streamError) {
+        this.status = 'student_turn';
+        return;
       }
-
-      if (!response.body) {
-        throw new Error('API 响应体为空');
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let full = '', buf = '';
-
-      let readTimeout = null;
-      const resetReadTimeout = () => {
-        clearTimeout(readTimeout);
-        readTimeout = setTimeout(() => controller.abort(), 1800000);
-      };
-      resetReadTimeout();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        resetReadTimeout();
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const d = line.slice(6).trim();
-          if (d === '[DONE]') continue;
-          try {
-            const j = JSON.parse(d);
-            const delta = j.choices?.[0]?.delta;
-            if (!delta) continue;
-            if (config.enableThinking !== false && (delta.reasoning_content || delta.reasoning)) {
-              if (onThinking) onThinking(delta.reasoning_content || delta.reasoning);
-            }
-            if (delta.content) {
-              full += delta.content;
-              if (onContent) onContent(delta.content);
-            }
-          } catch (_) {}
-        }
-      }
-      clearTimeout(readTimeout);
 
       // 检查灵光触发
-      const spark = this._detectSpark(full);
+      const spark = this._detectSpark(fullText);
 
       // 记录 AI 回复
-      const assistantMsg = { role: 'assistant', content: full, character: this.currentRoleName };
+      const assistantMsg = { role: 'assistant', content: fullText, character: this.currentRoleName };
       this.chatHistory.push(assistantMsg);
       this.roundsInRole++;
 
@@ -287,16 +238,10 @@ export class BrainstormEngine {
       await this._saveState();
 
       this.status = 'student_turn';
-
-      if (onDone) onDone(full);
     } catch (e) {
       console.error('[Brainstorm Fetch Error]', e);
       this.status = 'student_turn';
-      if (e.name === 'AbortError') {
-        if (onError) onError(new Error('请求超时，请重试'));
-      } else if (onError) {
-        onError(e);
-      }
+      if (onError) onError(e);
     }
   }
 
