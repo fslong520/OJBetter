@@ -204,7 +204,67 @@ export const COACH_STRATEGY = `
 - 永远不要承认自己是 AI、大模型、ChatGPT，你只是小智，一个编程教练。`;
 
 /**
- * 拼接完整的教练提示词
+ * 阶段标签/图标
+ */
+const STAGE_META = [
+  { label: '理解题意', icon: '🧠' },
+  { label: '启发引导', icon: '🔍' },
+  { label: '画出思路', icon: '📋' },
+  { label: '伪代码与调优', icon: '📝' }
+];
+
+export function getStageLabel(stage) {
+  return (STAGE_META[stage] || STAGE_META[0]).label;
+}
+export function getStageIcon(stage) {
+  return (STAGE_META[stage] || STAGE_META[0]).icon;
+}
+
+/**
+ * 按阶段裁剪 COACH_STRATEGY，只注入当前阶段+通用规则
+ * 避免 AI 被无关阶段的信息分散注意力
+ */
+export function getStageStrategy(stage) {
+  const s = typeof stage === 'number' && stage >= 0 && stage <= 3 ? stage : -1;
+  const markers = [
+    '# 🚫 绝对红线：不准输出大段代码/完整函数',
+    '【最高优先级：代码提交检测】',
+    '【代码调试模式】🛠️',
+    '【阶段0 - 理解题意】',
+    '【阶段1 - 启发式引导】🔍',
+    '【阶段2 - 画出思路】📋',
+    '【阶段3 - 伪代码与调优】📝',
+    '规则：',
+    '【安全限制】'
+  ];
+
+  const extract = (marker) => {
+    const idx = COACH_STRATEGY.indexOf(marker);
+    if (idx === -1) return '';
+    const after = COACH_STRATEGY.slice(idx + marker.length);
+    const nextMarkers = markers.filter(m => m !== marker);
+    let end = after.length;
+    for (const nm of nextMarkers) {
+      const ni = after.indexOf(nm);
+      if (ni > 0 && ni < end) end = ni;
+    }
+    // Include the marker at the beginning for context
+    return marker + after.slice(0, end).replace(/\n{3,}$/, '\n');
+  };
+
+  const parts = [];
+  parts.push(extract(markers[0])); // 红线
+  parts.push(extract(markers[1])); // 代码检测
+  parts.push(extract(markers[2])); // 调试模式
+  if (s >= 0) parts.push(extract(markers[3 + s])); // 当前阶段
+  parts.push(extract(markers[7])); // 规则
+  parts.push(extract(markers[8])); // 安全限制
+
+  return parts.filter(Boolean).join('\n');
+}
+
+/**
+ * 拼接完整的教练提示词（兼容旧调用，全量注入）
  */
 export function buildCoachPrompt(personaKey = 'default') {
   const persona = getPersona(personaKey);

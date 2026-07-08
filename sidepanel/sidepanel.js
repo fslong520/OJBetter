@@ -5,9 +5,10 @@
 import { exportLearningReport } from '../src/export/report-export.js';
 import { getSettings } from '../src/storage/settings.js';
 import { BrainstormEngine } from '../src/brainstorm/BrainstormEngine.js';
+import { getStageLabel, getStageIcon } from '../src/coach/personas.js';
 
 // 教练模式状态
-const state = { problemText: '', chatHistory: [], inChat: false, attachments: [] };
+const state = { problemText: '', chatHistory: [], inChat: false, attachments: [], stage: 0, stageRounds: 0 };
 // 头脑风暴状态（独立于教练模式）
 let _brainState = null;
 let _brainEngine = null;
@@ -479,20 +480,21 @@ function startCoach(problemText) {
   state.problemText = problemText;
   state.chatHistory = [];
   state.inChat = true;
+  state.stage = 0;
+  state.stageRounds = 0;
   const msgs = $('#chat-messages');
   if (msgs) msgs.innerHTML = '';
   showChatArea();
   // 添加题目预览
   const preview = problemText.replace(/<[^>]+>/g, '').slice(0, 200);
-  const title = $('#chat-title'); if (title) title.textContent = '📝 ' + (preview || '题目讨论');
+  const title = $('#chat-title'); if (title) title.textContent = '📝 ' + preview + '  [' + getStageIcon(0) + ' ' + getStageLabel(0) + ']';
   // 立即让 AI 开始第一轮提问
   startStream({
     type: 'generateHintStream',
     problemText: problemText.slice(0, 10000),
-    hintLevel: 0,
-    previousHints: [],
     coachMode: true,
-    chatHistory: []
+    chatHistory: [],
+    stage: state.stage
   }, { onDone: (full) => recordAssistant(full) });
 }
 
@@ -512,22 +514,35 @@ function sendCoachMessage() {
   // Add user message with attachments
   addChatMessage('user', text, false, attachments);
   state.chatHistory.push({ role: 'user', content: text, attachments });
+  state.stageRounds++;
   // Send to AI
   startStream({
     type: 'generateHintStream',
     problemText: state.problemText.slice(0, 10000),
-    hintLevel: 0,
-    previousHints: [],
     coachMode: true,
     chatHistory: state.chatHistory,
-    attachments
+    attachments,
+    stage: state.stage
   }, { onDone: (full) => recordAssistant(full) });
 }
 
 function recordAssistant(full) {
-  const clean = (full || '').replace(/<[^>]+>/g, '').trim();
-  if (clean) {
-    state.chatHistory.push({ role: 'assistant', content: clean });
+  // 剥离阶段标记 [STAGE:N]，避免出现在聊天记录中
+  const cleaned = (full || '').replace(/\[STAGE:\d\]/g, '').replace(/<[^>]+>/g, '').trim();
+  if (cleaned) {
+    state.chatHistory.push({ role: 'assistant', content: cleaned });
+  }
+  // 检测阶段推进标记 [STAGE:N]
+  const stageMatch = (full || '').match(/\[STAGE:(\d)\]/);
+  if (stageMatch) {
+    const newStage = parseInt(stageMatch[1], 10);
+    if (newStage > state.stage) {
+      state.stage = newStage;
+      state.stageRounds = 0;
+      const preview = state.problemText.replace(/<[^>]+>/g, '').slice(0, 200);
+      const title = $('#chat-title');
+      if (title) title.textContent = '📝 ' + preview + '  [' + getStageIcon(state.stage) + ' ' + getStageLabel(state.stage) + ']';
+    }
   }
 }
 
@@ -725,7 +740,8 @@ function startStream(msg, extra) {
     chatHistory: msg.chatHistory || [],
     coachMode: msg.coachMode || false,
     isTranslate: msg.isTranslate || false,
-    attachments: msg.attachments || []
+    attachments: msg.attachments || [],
+    stage: msg.stage
   }).then((resp) => {
     if (resp?.error) {
       showError('启动失败: ' + resp.error);
@@ -1063,7 +1079,7 @@ function finalizeHintContent() {
 function showError(message) {
   const msgs = $('#chat-messages');
   if (msgs && state.inChat) {
-    addChatMessage('assitant', '❌ ' + esc(String(message)));
+    addChatMessage('assistant', '❌ ' + esc(String(message)));
     return;
   }
   const hintContent = $('#hint-content');

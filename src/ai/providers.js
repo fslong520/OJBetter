@@ -3,7 +3,7 @@
  */
 import { ZEN_BASE_URL } from '../config/models.js';
 import { getSettings } from '../storage/settings.js';
-import { buildCoachPrompt, DEFAULT_PERSONA_KEY } from '../coach/personas.js';
+import { buildCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getStageStrategy } from '../coach/personas.js';
 
 // ==================== 通用提示 ====================
 const KATEX_NOTE = `\n\n【⚠️渲染提示】题目内容中可能包含因 LaTeX/KaTeX 渲染导致的文本重复现象（例如同一个公式或文字出现了两次）。请自动识别并忽略这类重复内容，将其合并为一份进行理解，不要将其误认为是题目有两个不同的条件。`;
@@ -143,7 +143,7 @@ class HintGenerator {
   }
 
   // ==================== 教练多轮对话 ====================
-  async coachChat(problemText, chatHistory, attachments = [], onThinking, onContent, onDone, onError) {
+  async coachChat(problemText, chatHistory, attachments = [], onThinking, onContent, onDone, onError, stage) {
     try {
       const config = await this.getConfig();
       const settings = await getSettings();
@@ -157,9 +157,15 @@ class HintGenerator {
         // 提交代码：用调试专用提示词，禁止问题意
         systemPrompt = DEBUG_COACH_PROMPT;
       } else {
-        // 未提交代码：用原教练策略
         const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
-        systemPrompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
+        if (stage !== undefined) {
+          // 阶段模式：用阶段策略替代全量策略
+          const persona = getPersona(personaKey);
+          systemPrompt = persona + '\n\n' + getStageStrategy(stage) + '\n\n' + KATEX_NOTE;
+        } else {
+          // 传统模式：全量策略
+          systemPrompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
+        }
       }
       
       // 清理 HTML，只保留纯文本
