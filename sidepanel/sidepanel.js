@@ -579,9 +579,6 @@ async function handleExport() {
   const btn = $('#export-btn');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; btn.style.opacity = '0.6'; }
 
-  // 弹窗提示 AI 分析中
-  const loadingText = $('#loading-text');
-  if (loadingText) loadingText.textContent = 'AI 正在分析对话...';
   showLoading();
 
   try {
@@ -590,7 +587,6 @@ async function handleExport() {
     showError('导出失败: ' + e.message);
   } finally {
     hideLoading();
-    if (loadingText) loadingText.textContent = '小智正在思考...';
     if (btn) { btn.textContent = '📄'; btn.disabled = false; btn.style.opacity = '1'; }
   }
 }
@@ -1053,9 +1049,11 @@ function renderPreviews() {
   state.attachments.forEach((att, idx) => {
     const item = document.createElement('div');
     item.className = 'preview-item';
-    item.innerHTML = '<img src="' + att.data + '" alt="' + esc(att.name) + '"><button class="preview-remove" data-idx="' + idx + '">✕</button>';
+    item.innerHTML = '<img src="' + att.data + '" alt="' + esc(att.name) + '"><button class="preview-remove" data-id="' + att.id + '">✕</button>';
     item.querySelector('.preview-remove').addEventListener('click', () => {
-      state.attachments.splice(idx, 1);
+      const id = att.id;
+      const index = state.attachments.findIndex(a => a.id === id);
+      if (index !== -1) state.attachments.splice(index, 1);
       renderPreviews();
     });
     list.appendChild(item);
@@ -1253,6 +1251,33 @@ function renderMarkdown(text) {
     .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
     .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
+  // 4.5 Tables and Links
+  // Links [text](url) — inline, before tables so they work inside cells
+  p = p.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+    return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + text + '</a>';
+  });
+  // Tables: | header |\n| --- | --- |\n| data | → <table>
+  const tableBlocks = [];
+  p = p.replace(/^\|(.+)\|\s*\n\|([-:| ]+)\|\s*\n((?:\|.+\|\s*\n)*)/gm, (match, header, sep, body) => {
+    const id = tableBlocks.length;
+    const headers = header.split('|').map(c => c.trim()).filter(c => c);
+    const bodyRows = body.trim() ? body.trim().split('\n').filter(r => r.trim()).map(r =>
+      r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim())
+    ) : [];
+    let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px;">';
+    html += '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
+    if (bodyRows.length) {
+      html += '<tbody>';
+      for (const row of bodyRows) {
+        html += '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>';
+      }
+      html += '</tbody>';
+    }
+    html += '</table>';
+    tableBlocks.push(html);
+    return '\x00T' + id + '\x00';
+  });
+
   // 5. 分行处理段落
   const lines = p.split('\n'); 
   const result = []; 
@@ -1260,7 +1285,7 @@ function renderMarkdown(text) {
 
   for (const line of lines) {
     // 检查是否是占位符（块级元素）
-    if (line.includes('\x00C') || line.includes('\x00L')) {
+    if (line.includes('\x00C') || line.includes('\x00L') || line.includes('\x00T')) {
        if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
        // 直接作为块级元素输出
        // 注意：占位符可能是一整行
@@ -1287,7 +1312,8 @@ function renderMarkdown(text) {
   return result.join('\n')
     // 6. 还原占位符
     .replace(/\x00C(\d+)\x00/g, (_, i) => codeBlocks[i] || '')
-    .replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '');
+    .replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '')
+    .replace(/\x00T(\d+)\x00/g, (_, i) => tableBlocks[i] || '');
 }
 
 

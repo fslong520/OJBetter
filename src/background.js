@@ -157,9 +157,6 @@ async function startStreaming(message, sender) {
     pendC += c;
     if (!timer) timer = setTimeout(flush, FLUSH_MS);
   };
-  // 启动双层 keepalive：chrome.alarms 防止 Service Worker 休眠
-  startStreamKeepalive(streamId);
-
   const cleanupStream = () => {
     stopStreamKeepalive(streamId);
     const port = _streamPorts.get(streamId);
@@ -192,6 +189,10 @@ async function startStreaming(message, sender) {
   };
 
   try {
+    // 启动双层 keepalive：chrome.alarms 防止 Service Worker 休眠
+    // 放在 try 块内，确保 catch → onError → cleanupStream 能清理 _activeStreams
+    startStreamKeepalive(streamId);
+
     if (isTranslate) {
       await hintGenerator.translateStream(problemText, attachments, onThinking, onContent, onDone, onError);
     } else if (coachMode) {
