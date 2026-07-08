@@ -100,7 +100,7 @@
       <div id="plan-content" class="plan-content"></div>
     </aside>
 
-    <!-- Help Panel -->
+      <!-- Help Panel -->
     <aside id="help-panel" class="help-panel">
       <div class="panel-header">
         <button id="help-back-btn" class="back-btn">← 返回</button>
@@ -111,51 +111,55 @@
           <h4>🚀 快速开始</h4>
           <ol class="help-steps">
             <li>在 OJ 网站上打开任意编程题</li>
-            <li>点击页面右下角的 <span class="badge">🦉</span> 浮标按钮</li>
-            <li>小智会自动捕获题目并开始引导你思考</li>
+            <li>点击浏览器工具栏上的 🦉 图标，或按 <span class="badge">Ctrl+Shift+H</span> 打开侧边栏</li>
+            <li>在输入框中粘贴题目，或直接点击下方按钮开始</li>
+            <li>选择模式：<strong>启发式引导</strong>（带方向地学）或 <strong>灵光一闪</strong>（头脑风暴）</li>
           </ol>
         </div>
         <div class="help-section">
-          <h4>💡 多种触发方式</h4>
+          <h4>💡 使用方式</h4>
           <ul class="help-features">
-            <li><strong>浮标按钮：</strong>在 OJ 页面右下角，点击即可开始</li>
-            <li><strong>扩展图标：</strong>点击浏览器工具栏上的 🦉 图标直接打开侧边栏</li>
-            <li><strong>划词菜单：</strong>选中任意文本，右键选择「灵光一下，小智帮你」</li>
-            <li><strong>快捷键：</strong>按下 <span class="badge">Ctrl+Shift+H</span> 快速打开</li>
+            <li><strong>🦉 扩展图标：</strong>在 OJ 页面上点击工具栏图标，打开侧边栏</li>
+            <li><strong>⌨️ 快捷键：</strong>按下 <span class="badge">Ctrl+Shift+H</span> 快速打开/关闭侧边栏</li>
+            <li><strong>📋 手动粘贴：</strong>在侧边栏输入框中粘贴题目内容，选择模式开始</li>
+            <li><strong>🎯 页面按钮：</strong>在支持的 OJ 网站上，题目下方会出现「✨ 灵光一下，开始思考」按钮</li>
+            <li><strong>✂️ 划词菜单：</strong>选中任意文本，右键选择「灵光一下，小智帮你」</li>
           </ul>
         </div>
         <div class="help-section">
-          <h4>🎯 功能介绍</h4>
+          <h4>🎯 两种模式</h4>
           <ul class="help-features">
-            <li><strong>💬 AI 教练：</strong>多轮对话引导你独立思考，不直接给答案</li>
-            <li><strong>✨ 灵光一闪：</strong>AI 头脑风暴——质疑者、联想者、出题人三重角色轮换，深度拓展算法思维</li>
-            <li><strong>🌐 翻译：</strong>将英文题目翻译成中文</li>
-            <li><strong>📜 历史记录：</strong>查看所有提问记录和对话历史</li>
-            <li><strong>📊 学习计划：</strong>根据你的弱点生成个性化学习路线</li>
-            <li><strong>⚙️ 设置：</strong>自定义 AI 模型、教练风格等</li>
+            <li><strong>🔍 启发式引导：</strong>AI 教练通过四阶段（理解题意→启发引导→画流程图→伪代码调优）引导你独立思考，不直接给答案</li>
+            <li><strong>✨ 灵光一闪：</strong>AI 扮演「质疑者」「联想者」「出题人」三重角色轮换，和你一起天马行空地探索题目的更多可能性</li>
           </ul>
         </div>
         <div class="help-section">
-          <h4>🤖 教练模式</h4>
-          <p class="help-text">小智不会直接给出答案，而是通过提问、画图、伪代码等方式，引导你自己思考并解决问题。这种教学方法有助于培养编程思维。</p>
-        </div>
-        <div class="help-section">
-          <h4>✨ 灵光一闪（头脑风暴）</h4>
-          <p class="help-text">做完题后想拓展思维？试试灵光一闪！小智会轮流扮演「质疑者」「联想者」「出题人」三种角色，和你一起探索题目的更多可能性。不是考试，不是辩论——是一起"胡思乱想"。</p>
+          <h4>📚 其他功能</h4>
+          <ul class="help-features">
+            <li><strong>🌐 翻译：</strong>将英文题目翻译成中文，保留数学公式</li>
+            <li><strong>📜 历史记录：</strong>查看所有提问记录和对话历史，方便复习</li>
+            <li><strong>📊 明日推荐：</strong>根据学习情况生成个性化练习推荐</li>
+            <li><strong>📄 导出报告：</strong>将学习记录导出为 PDF 报告</li>
+            <li><strong>⚙️ 设置：</strong>自定义 AI 模型、教练风格、温度参数等</li>
+          </ul>
         </div>
         <div class="help-section">
           <h4>❓ 常见问题</h4>
           <details class="help-faq">
             <summary>小智没有回复怎么办？</summary>
-            <p>检查设置中的 API 配置是否正确，确保网络连接正常。</p>
+            <p>检查设置中的 API 配置是否正确，确保网络连接正常。免费模型无需 API Key，如使用自定义 API 请确认地址和密钥无误。</p>
           </details>
           <details class="help-faq">
             <summary>如何清除所有历史数据？</summary>
-            <p>打开历史记录面板，点击底部的「清除全部记录」按钮。</p>
+            <p>打开历史记录面板（📜），点击底部的「清除全部记录」按钮。</p>
           </details>
           <details class="help-faq">
             <summary>支持哪些 OJ 网站？</summary>
-            <p>目前支持大多数主流编程在线评测网站。</p>
+            <p>支持国内外 70+ 主流 OJ 和竞赛网站，包括洛谷、AcWing、牛客、LeetCode、Codeforces、AtCoder 等。</p>
+          </details>
+          <details class="help-faq">
+            <summary>两种模式有什么区别？</summary>
+            <p>启发式引导适合初学或需要循序渐进解题时使用；灵光一闪适合做完题后拓展思维，或卡住时换角度想问题。</p>
           </details>
         </div>
       </div>
