@@ -1,11 +1,12 @@
 /**
  * 灵光一闪 - 头脑风暴引擎
  *
- * 独立于教练模式的状态机，管理三重角色切换、灵光标记、持久化。
+ * 独立于教练模式的状态机，管理头脑风暴对话、灵光标记、持久化。
+ * AI 按需选用思考角度，无固定角色轮换。
  * 不继承 HintGenerator —— 状态逻辑完全不同。
  */
 
-import { getRolePrompt, ROLE_SEQUENCE, MIN_ROUNDS_PER_ROLE, ROLE_NAMES, ROLE_SWITCH_LINES } from './BrainstormPrompts.js';
+import { getUnifiedBrainstormPrompt } from './BrainstormPrompts.js';
 import { getSettings } from '../storage/settings.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
@@ -22,8 +23,6 @@ export class BrainstormEngine {
     this.problemText = '';
     this.chatHistory = [];        // 独立于教练模式的对话历史
     this.status = 'idle';         // idle | ai_turn | student_turn | collecting
-    this.roleIndex = 0;           // 当前角色在 ROLE_SEQUENCE 中的索引
-    this.roundsInRole = 0;        // 当前角色已输出轮数
     this.sparkCount = 0;          // 已标记灵光数
     this.sparkCollection = [];    // 灵光合集
     this.totalRounds = 0;         // 总对话轮数
@@ -35,32 +34,6 @@ export class BrainstormEngine {
   /** 判断是否有进行中的会话 */
   get isActive() {
     return this.status === 'ai_turn' || this.status === 'student_turn';
-  }
-
-  /** 当前角色英文 key */
-  get currentRole() {
-    return ROLE_SEQUENCE[this.roleIndex % ROLE_SEQUENCE.length];
-  }
-
-  /** 当前角色中文名 */
-  get currentRoleName() {
-    return ROLE_NAMES[this.currentRole];
-  }
-
-  /** 是否应该切换到下一个角色 */
-  get shouldSwitchRole() {
-    return this.roundsInRole >= MIN_ROUNDS_PER_ROLE;
-  }
-
-  /** 切换角色 */
-  advanceRole() {
-    const oldRole = this.currentRole;
-    this.roleIndex++;
-    this.roundsInRole = 0;
-
-    // 生成切换提示语
-    const transitionKey = `${oldRole}_to_${this.currentRole}`;
-    return ROLE_SWITCH_LINES[transitionKey] || `🔄 换种角度，我来做${this.currentRoleName}——`;
   }
 
   // ==================== 主要流程 ====================
@@ -80,8 +53,8 @@ export class BrainstormEngine {
     await this._saveState();
 
     // 生成开场白
-    const systemPrompt = getRolePrompt(this.currentRole, problemText);
-    const userContext = `## 当前题目\n${problemText.slice(0, 4000)}\n\n请以「${this.currentRoleName}」的身份开始一场头脑风暴。先用 1-2 句话承接场景，然后抛出一个具体问题。`;
+    const systemPrompt = getUnifiedBrainstormPrompt();
+    const userContext = `## 当前题目\n${problemText.slice(0, 4000)}\n\n请开始一场头脑风暴。先用 1-2 句话承接场景，然后抛出一个具体问题。`;
 
     this.chatHistory.push({ role: 'user', content: userContext });
 
@@ -124,17 +97,11 @@ export class BrainstormEngine {
     this.chatHistory.push(msg);
     this.totalRounds++;
 
-    // 检查是否到了角色切换时机
-    if (this.shouldSwitchRole) {
-      const transitionMsg = this.advanceRole();
-      this.chatHistory.push({ role: 'assistant', content: transitionMsg });
-    }
-
     this.status = 'ai_turn';
     await this._saveState();
 
-    // 构建系统提示词
-    const systemPrompt = getRolePrompt(this.currentRole, this.problemText);
+    // 构建系统提示词（统一提示词，无角色轮换）
+    const systemPrompt = getUnifiedBrainstormPrompt();
 
     // 构建消息列表
     const messages = [
@@ -148,12 +115,6 @@ export class BrainstormEngine {
       const content = typeof msg.content === 'string' ? msg.content.slice(0, 2000) : msg.content;
       messages.push({ role: msg.role, content });
     }
-
-    // 追加角色提示
-    messages.push({
-      role: 'user',
-      content: `你现在是「${this.currentRoleName}」。请根据以上对话，输出你的下一轮回应，必须包含一个具体问题。${this.roundsInRole === 0 ? '这是你第一次以这个角色发言，请先做角色切换声明。' : ''}`
-    });
 
     this.onSparkCallback = callbacks.onSpark || null;
 
@@ -230,9 +191,8 @@ export class BrainstormEngine {
       const spark = this._detectSpark(fullText);
 
       // 记录 AI 回复
-      const assistantMsg = { role: 'assistant', content: fullText, character: this.currentRoleName };
+      const assistantMsg = { role: 'assistant', content: fullText };
       this.chatHistory.push(assistantMsg);
-      this.roundsInRole++;
 
       // 保存状态
       await this._saveState();
@@ -315,8 +275,6 @@ export class BrainstormEngine {
       problemText: this.problemText,
       chatHistory: this.chatHistory,
       status: this.status,
-      roleIndex: this.roleIndex,
-      roundsInRole: this.roundsInRole,
       sparkCount: this.sparkCount,
       sparkCollection: this.sparkCollection,
       totalRounds: this.totalRounds

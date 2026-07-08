@@ -757,46 +757,6 @@ body {
   color: var(--text-secondary);
 }
 
-.chat-message--assistant .role-badge {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-
-.chat-message--assistant .role-badge--skeptic {
-  background: #FEF3C7;
-  color: #92400E;
-}
-
-.chat-message--assistant .role-badge--associator {
-  background: #DBEAFE;
-  color: #1E40AF;
-}
-
-.chat-message--assistant .role-badge--questionSetter {
-  background: #D1FAE5;
-  color: #065F46;
-}
-
-@media (prefers-color-scheme: dark) {
-  .chat-message--assistant .role-badge--skeptic {
-    background: #3D2E00;
-    color: #FBBF24;
-  }
-  .chat-message--assistant .role-badge--associator {
-    background: #1E3A5F;
-    color: #93C5FD;
-  }
-  .chat-message--assistant .role-badge--questionSetter {
-    background: #064E3B;
-    color: #6EE7B7;
-  }
-}
-
 /* ==================== 灵光卡片 ==================== */
 .spark-card {
   margin: 8px 0 4px;

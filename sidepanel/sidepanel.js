@@ -219,17 +219,14 @@ function startBrainstorm(problemText) {
       const el = _currentAssistantEl;
       if (el) {
         const bubble = el.querySelector('.chat-bubble');
-        const role = _brainEngine ? _brainEngine.currentRoleName : '';
-        // 角色标识
-        if (role) {
-          let header = el.querySelector('.bubble-header');
-          if (!header) {
-            header = document.createElement('div');
-            header.className = 'bubble-header';
-            el.insertBefore(header, bubble);
-          }
-          header.innerHTML = '🦉 小智 <span class="role-badge role-badge--' + (_brainEngine?.currentRole || 'skeptic') + '">' + role + '</span>';
+        // 统一显示 "小智"，无角色徽章
+        let header = el.querySelector('.bubble-header');
+        if (!header) {
+          header = document.createElement('div');
+          header.className = 'bubble-header';
+          el.insertBefore(header, bubble);
         }
+        header.innerHTML = '🦉 小智';
         // 保留流式文本（不做 markdown 渲染，避免破坏 spark card）
         if (bubble) {
           const streamText = bubble._raw || '';
@@ -243,7 +240,7 @@ function startBrainstorm(problemText) {
       _currentAssistantEl = null;
       // 记录到 chatHistory
       if (full) {
-        state.chatHistory.push({ role: 'assistant', content: full, character: _brainEngine?.currentRoleName || '' });
+        state.chatHistory.push({ role: 'assistant', content: full });
       }
       scrollChatToBottom();
       setChatInputEnabled(true);
@@ -327,18 +324,17 @@ function sendBrainstormMessage() {
           bubble.innerHTML = bubble.innerHTML.replace(/\n/g, '<br>');
           bubble.classList.add('brain-bubble');
         }
-        // 角色标识（仅当引擎状态表明已切换角色时添加）
-        const role = _brainEngine ? _brainEngine.currentRoleName : '';
-        if (role && !el.querySelector('.bubble-header')) {
+        // 统一显示 "小智"，无角色徽章
+        if (!el.querySelector('.bubble-header')) {
           const header = document.createElement('div');
           header.className = 'bubble-header';
           el.insertBefore(header, bubble);
-          header.innerHTML = '🦉 小智 <span class="role-badge role-badge--' + (_brainEngine?.currentRole || 'skeptic') + '">' + role + '</span>';
+          header.innerHTML = '🦉 小智';
         }
       }
       _currentAssistantEl = null;
       if (full) {
-        state.chatHistory.push({ role: 'assistant', content: full, character: _brainEngine?.currentRoleName || '' });
+        state.chatHistory.push({ role: 'assistant', content: full });
       }
       scrollChatToBottom();
       setChatInputEnabled(true);
