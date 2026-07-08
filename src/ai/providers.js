@@ -326,7 +326,7 @@ class HintGenerator {
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${response.status}`);
+        throw new Error(err.error?.message || `连接出问题了（${response.status}），检查一下设置里的 API 配置？`);
       }
 
       // 检测非SSE响应（如验证码页面）
@@ -334,13 +334,13 @@ class HintGenerator {
       if (!contentType.includes('text/event-stream') && !contentType.includes('application/json')) {
         const text = await response.text().catch(() => '');
         if (text.includes('captcha') || text.includes('验证码') || text.includes('<html')) {
-          throw new Error('API 服务触发了人机验证，请稍后重试或使用自定义API');
+          throw new Error('小智被验证码拦住了，等一会儿再试试？');
         }
-        throw new Error('API 返回了非预期响应格式');
+        throw new Error('小智收到了看不懂的回复，换个模型试试？');
       }
 
       if (!response.body) {
-        throw new Error('API 响应体为空，请检查网络或重试');
+        throw new Error('小智没有收到回复，检查一下网络再试试');
       }
 
       const reader = response.body.getReader();
@@ -387,13 +387,13 @@ class HintGenerator {
         errorMessage: e.message,
         errorStack: e.stack
       });
-      if (e.name === 'AbortError') onError(new Error('请求超时，请重试'));
+      if (e.name === 'AbortError') onError(new Error('小智想太久了，点一下重新试试吧'));
       else if (e.message?.includes('CORS') || e.message?.includes('address space') || e.message?.includes('blocked')) {
-        onError(new Error('网络策略拦截，请打开设置切换到自定义API'));
+        onError(new Error('网络不通畅，去设置里换个连接方式试试？'));
       }
       else if (e.message === 'Failed to fetch') {
         // 可能是DNS、SSL、服务器宕机等原因
-        onError(new Error('无法连接至免费模型服务器（opencode.ai）。可能原因：1) 服务器维护中；2) 网络连接问题；3) 服务商已停止免费服务。请尝试：设置 → 切换到自定义API'));
+        onError(new Error('暂时连不上小智的脑子，检查一下网络，或者去设置里换个方式连接'));
       }
       else onError(e);
     } finally {

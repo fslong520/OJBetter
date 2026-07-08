@@ -26,6 +26,9 @@ let _currentAssistantEl = null; // 正在流式写入的 AI 消息元素
 // TTS state
 let _currentUtterance = null;
 
+// Thinking display state
+let _enableThinking = true;
+
 // ==================== Init ====================
 document.addEventListener('DOMContentLoaded', () => { checkFirstOpen(); checkPendingHint(); bindEvents(); });
 
@@ -74,6 +77,22 @@ function bindEvents() {
     probInput.addEventListener('focus', clearError);
   }
   const nc = $('#new-coach-btn'); if (nc) nc.addEventListener('click', resetToWelcome);
+  const spb = $('#stage-prev-btn'); if (spb) spb.addEventListener('click', () => {
+    if (state.stage > 0 && state.inChat) {
+      state.stage--;
+      state.stageRounds = 0;
+      addChatMessage('assistant', '📋 回到上一阶段：' + getStageLabel(state.stage), false);
+      updateStageUI();
+    }
+  });
+  const snb = $('#stage-next-btn'); if (snb) snb.addEventListener('click', () => {
+    if (state.stage < 3 && state.inChat) {
+      state.stage++;
+      state.stageRounds = 0;
+      addChatMessage('assistant', '📋 进入下一阶段：' + getStageLabel(state.stage), false);
+      updateStageUI();
+    }
+  });
   const hb = $('#history-btn'); if (hb) hb.addEventListener('click', showHistory);
   const pb = $('#plan-btn'); if (pb) pb.addEventListener('click', showPlan);
   const eb = $('#export-btn'); if (eb) eb.addEventListener('click', handleExport);
@@ -142,6 +161,7 @@ function switchToCoach() {
   if (_brainEngine) { _brainEngine = null; }
   _brainState = null;
   restoreModeState('coach');
+  updateStageUI();
 }
 
 // ==================== Brainstorm ====================
@@ -488,6 +508,7 @@ function startCoach(problemText) {
   // 添加题目预览
   const preview = problemText.replace(/<[^>]+>/g, '').slice(0, 200);
   const title = $('#chat-title'); if (title) title.textContent = '📝 ' + preview + '  [' + getStageIcon(0) + ' ' + getStageLabel(0) + ']';
+  updateStageUI();
   // 立即让 AI 开始第一轮提问
   startStream({
     type: 'generateHintStream',
@@ -542,6 +563,7 @@ function recordAssistant(full) {
       const preview = state.problemText.replace(/<[^>]+>/g, '').slice(0, 200);
       const title = $('#chat-title');
       if (title) title.textContent = '📝 ' + preview + '  [' + getStageIcon(state.stage) + ' ' + getStageLabel(state.stage) + ']';
+      updateStageUI();
     }
   }
 }
@@ -640,8 +662,10 @@ function startStream(msg, extra) {
     // 增量追加
     if (v.thinkDelta) {
       localThink += v.thinkDelta;
-      appendThinking(v.thinkDelta);
-      const ta = $('#thinking-area'); if (ta) ta.style.display = 'block';
+      if (_enableThinking) {
+        appendThinking(v.thinkDelta);
+        const ta = $('#thinking-area'); if (ta) ta.style.display = 'block';
+      }
     }
     if (v.contentDelta) {
       localContent += v.contentDelta;
@@ -696,12 +720,12 @@ function startStream(msg, extra) {
         showThinking(false);
         if (msg.coachMode || msg.isTranslate) {
           if (_currentAssistantEl) {
-            _currentAssistantEl.querySelector('.chat-bubble').innerHTML = '<span class="error-msg">⏱️ 请求超时，请检查网络或 API 配置后重试</span>';
+            _currentAssistantEl.querySelector('.chat-bubble').innerHTML = '<span class="error-msg">⏱️ 小智想太久了，点一下⏹重新开始吧</span>';
             _currentAssistantEl = null;
           }
           setChatInputEnabled(true);
         } else {
-          showError('请求超时，请检查网络或 API 配置后重试');
+          showError('⏱️ 小智想太久了，点一下⏹重新开始吧');
           setChatInputEnabled(true);
         }
       }
@@ -958,6 +982,23 @@ function showChatArea() {
   if (c) c.style.display = 'flex';
 }
 
+function updateStageUI() {
+  const controls = $('#stage-controls');
+  if (!controls) return;
+  const show = state.inChat && _currentMode === 'coach';
+  controls.style.display = show ? 'flex' : 'none';
+  if (!show) return;
+  const preview = state.problemText.replace(/<[^>]+>/g, '').slice(0, 200);
+  const title = $('#chat-title');
+  if (title) {
+    title.textContent = '📝 ' + preview + '  [' + getStageIcon(state.stage) + ' ' + getStageLabel(state.stage) + ']';
+  }
+  const prevBtn = $('#stage-prev-btn');
+  const nextBtn = $('#stage-next-btn');
+  if (prevBtn) prevBtn.disabled = state.stage <= 0;
+  if (nextBtn) nextBtn.disabled = state.stage >= 3;
+}
+
 function showWelcome() {
   const w = $('#welcome-area'), c = $('#chat-area');
   if (w) w.style.display = '';
@@ -1034,11 +1075,13 @@ function showLightbox(src) {
 
 // ==================== Thinking ====================
 function showThinking(show) {
+  if (!_enableThinking && show === true) return;
   const area = $('#thinking-area'); const content = $('#thinking-content');
   if (area) { area.style.display = show ? 'block' : 'none'; if (show) area.classList.remove('collapsed'); }
   if (content && show) content.innerHTML = '';
 }
 function appendThinking(text) {
+  if (!_enableThinking) return;
   const area = $('#thinking-area'); const content = $('#thinking-content');
   if (!area || !content) return;
   if (area.style.display === 'none') area.style.display = 'block';
@@ -1077,6 +1120,11 @@ function finalizeHintContent() {
   area._rawText = '';
 }
 function showError(message) {
+  // 若有技术术语，套上友好外衣
+  const msgStr = String(message);
+  if (/Error:|TypeError|undefined|is not|Cannot read/.test(msgStr)) {
+    message = '小智遇到了一点小问题：' + msgStr;
+  }
   const msgs = $('#chat-messages');
   if (msgs && state.inChat) {
     addChatMessage('assistant', '❌ ' + esc(String(message)));
@@ -1539,6 +1587,8 @@ function showHelp() {
 }
 
 function checkFirstOpen() {
+  // 加载设置
+  getSettings().then(s => { _enableThinking = s.enableThinking !== false; });
   // 清理旧版标记，避免干扰
   chrome.storage.local.remove(['isFirstOpen', 'lastOpenedByIcon']);
   chrome.storage.local.get(['hasSeenHelp'], (result) => {
