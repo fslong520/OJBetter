@@ -549,7 +549,8 @@ function sendCoachMessage() {
 
 function recordAssistant(full) {
   // 剥离阶段标记 [STAGE:N]，避免出现在聊天记录中
-  const cleaned = (full || '').replace(/\[STAGE:\d\]/g, '').replace(/<[^>]+>/g, '').trim();
+  let cleaned = obfuscateCode(full || '');
+  cleaned = cleaned.replace(/\[STAGE:\d\]/g, '').replace(/<[^>]+>/g, '').trim();
   if (cleaned) {
     state.chatHistory.push({ role: 'assistant', content: cleaned });
   }
@@ -812,7 +813,8 @@ async function finalizeAssistantEl() {
   const bubble = el.querySelector('.chat-bubble');
   if (bubble && bubble._raw) {
     bubble.dataset.markdown = bubble._raw;
-    bubble.innerHTML = renderMarkdown(bubble._raw);
+    const sanitized = obfuscateCode(bubble._raw || '');
+    bubble.innerHTML = renderMarkdown(sanitized);
     delete bubble._raw;
     addCopyBtn(bubble);
     const ttsBtn = addTtsBtn(el);
@@ -1597,4 +1599,53 @@ function checkFirstOpen() {
       showHelp();
     }
   });
+}
+
+/**
+ * AI 回复内容过滤：检测完整 C++ 函数/代码，加入混淆防止直接复制粘贴
+ * 混淆方式：在代码块中插入随机注释标记，不改变语义但阻止直接编译
+ */
+function obfuscateCode(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  // 检测是否包含完整 C++ 代码特征
+  const hasCompleteCode =
+    (text.includes('#include') && text.includes('int main')) ||
+    (text.includes('int main(')) ||
+    (/\b(int|void|bool|long|double|char)\s+\w+\s*\([^)]*\)\s*\{/.test(text)) ||
+    (/#include\s*[<"]/.test(text) && /\bmain\s*\(/.test(text));
+
+  if (!hasCompleteCode) return text;
+
+  const obfuscated = text.replace(/(```[\s\S]*?```|`[^`]+`)/g, (match) => {
+    // 只混淆 ``` 代码块，不混淆 ` 行内代码
+    if (!match.startsWith('```')) return match;
+
+    const langMatch = match.match(/```(\w*)\n([\s\S]*?)```/);
+    if (!langMatch) return match;
+
+    const lang = langMatch[1];
+    const code = langMatch[2];
+
+    // C++ 代码块才混淆；无语言标注但有 C++ 特征的也混淆
+    if (!['cpp', 'c', 'c++', 'cc', ''].includes(lang.toLowerCase())) {
+      const hasCppFeatures = /\b(int|void|bool|long|double|char|#include|cout|cin|printf|scanf)\b/.test(code);
+      if (!hasCppFeatures) return match;
+    }
+
+    const lines = code.split('\n');
+    const obfLines = lines.map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#include') || trimmed.startsWith('/*')) return line;
+      // 函数定义/return/大括号行插入混淆标记
+      if (trimmed.includes('{') || trimmed.includes('}') || trimmed.startsWith('return') || /\b(int|void|bool|long|double|char)\s+\w+\s*\(/.test(trimmed)) {
+        return line + ' /* 😏 */';
+      }
+      return line;
+    });
+
+    return '```' + lang + '\n' + obfLines.join('\n') + '\n```';
+  });
+
+  return obfuscated;
 }
