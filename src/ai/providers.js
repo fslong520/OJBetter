@@ -3,13 +3,10 @@
  */
 import { ZEN_BASE_URL } from '../config/models.js';
 import { getSettings } from '../storage/settings.js';
-import { buildCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getStageStrategy } from '../coach/personas.js';
+import { buildCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getHardenedPersona, getStageStrategy } from '../coach/personas.js';
 
 // ==================== 通用提示 ====================
 const KATEX_NOTE = `\n\n【⚠️渲染提示】题目内容中可能包含因 LaTeX/KaTeX 渲染导致的文本重复现象（例如同一个公式或文字出现了两次）。请自动识别并忽略这类重复内容，将其合并为一份进行理解，不要将其误认为是题目有两个不同的条件。`;
-
-// 通用后备提示词（避免异步加载问题）
-const COACH_PROMPT = buildCoachPrompt(DEFAULT_PERSONA_KEY) + KATEX_NOTE;
 
 // ==================== 代码检测：判断学生是否提交了代码 ====================
 function isCodeSubmission(text) {
@@ -152,16 +149,15 @@ class HintGenerator {
       const latestStudentMsg = [...(chatHistory || [])].reverse().find(m => m.role === 'user');
       const hasCode = latestStudentMsg ? isCodeSubmission(latestStudentMsg.content) : false;
       
+      const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
       let systemPrompt;
       if (hasCode) {
-        // 提交代码：用调试专用提示词，禁止问题意
-        systemPrompt = DEBUG_COACH_PROMPT;
+        // 提交代码：调试专用提示词，但前置 persona 确保风格一致
+        systemPrompt = getPersona(personaKey) + '\n\n调试核心规则：\n' + DEBUG_COACH_PROMPT;
       } else {
-        const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
         if (stage !== undefined) {
-          // 阶段模式：用阶段策略替代全量策略
-          const persona = getPersona(personaKey);
-          systemPrompt = persona + '\n\n' + getStageStrategy(stage) + '\n\n' + KATEX_NOTE;
+          // 阶段模式：策略 + 风格（persona 置后保 recency effect）
+          systemPrompt = getStageStrategy(stage) + '\n\n' + getHardenedPersona(personaKey) + '\n\n' + KATEX_NOTE;
         } else {
           // 传统模式：全量策略
           systemPrompt = buildCoachPrompt(personaKey) + KATEX_NOTE;
@@ -471,4 +467,4 @@ class HintGenerator {
 }
 
 const hintGenerator = new HintGenerator();
-export { hintGenerator, HintGenerator, HINT_PROMPTS, COACH_PROMPT };
+export { hintGenerator, HintGenerator, HINT_PROMPTS };

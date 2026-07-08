@@ -444,7 +444,7 @@ function getStyleName(key) {
     'default': '专业温和型',
     'encouraging': '热情鼓励型',
     'humorous': '幽默风趣型',
-    'sarcastic': '毒舌严师型'
+    'direct': '直截了当型'
   };
   return map[key] || '未知';
 }
