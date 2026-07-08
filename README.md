@@ -142,6 +142,15 @@ OJBetter/
 │   ├── content.js         # 页面注入（题目捕获）
 │   ├── ai/
 │   │   └── providers.js  # AI 调用核心（COACH_PROMPT、流式生成）
+│   ├── lib/
+│   │   └── stream-fetcher.js  # 统一 SSE 流式获取器（从 3 处重复提取）
+│   ├── coach/
+│   │   └── personas.js        # 教练人格系统（4种风格 + 阶段策略）
+│   ├── brainstorm/            # 头脑风暴引擎（质疑者/联想者/出题人）
+│   ├── export/
+│   │   └── report-export.js   # 学习报告导出（Markdown）
+│   ├── config/
+│   │   └── models.js          # API 配置
 │   ├── storage/
 │   │   ├── settings.js   # 设置持久化
 │   │   └── history.js    # 提示历史记录
@@ -200,7 +209,7 @@ MIT License - 自由使用、修改和分发。
 - [x] 支持更多题库网站的题目识别（新增 26 个 OJ 域名 + 18 个选择器）
 - [x] 增加语音播报与语音输入功能（Web Speech API）
 - [x] 多模态支持：图片上传/粘贴/预览/发送
-- [x] 导出学习报告 PDF
+- [x] 导出学习报告（Markdown）
 
 ---
 

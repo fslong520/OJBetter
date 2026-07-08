@@ -37,3 +37,13 @@
 
 - 更新版本号至 1.2.0
 - 打包文件：`OJBetter-v1.2.0-store.zip`
+
+### 🔧 代码优化
+
+- **抽取公共流式模块**：新增 `src/lib/stream-fetcher.js`，消除 providers.js / BrainstormEngine.js / generator.js 三处重复的 SSE 流式解析代码（约 260 行）
+- **修复预览删除索引错位**：附件删除改用 `att.id` 精确匹配，避免 splice 后误删
+- **修复导出 loadingText 竞态**：移除 handleExport 中对加载文字的覆写/恢复冲突
+- **renderMarkdown 增强**：支持 Markdown 表格（`<table>`）与链接（`<a>`）渲染
+- **coachChat HTML 实体修正**：先解码 HTML 实体（如 `&lt;` → `<`）再清理标签，避免信息丢失
+- **background.js keepalive 泄漏修复**：`startStreamKeepalive` 移入 try 块，异常路径正确回收 `_activeStreams`
+- **文档同步**：README 架构树补充新模块、导出格式更正为 Markdown；CERTIFICATION_NOTES 版本号更新至 1.2.0

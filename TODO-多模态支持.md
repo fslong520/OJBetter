@@ -2,6 +2,11 @@
 
 > 为 OJBetter 增加图片上传/粘贴/预览能力，使 AI 教练能"看"到题目截图、手绘图、代码截图等。
 
+> **当前实现状态（2026-07-08 更新）**
+> - ✅ 已完成：Phase 1（UI 上传/粘贴）、Phase 4（消息模型）、Phase 5（AI Provider）、Phase 6（背景层透传）
+> - 🟡 部分完成：Phase 2/3（图片预览/大图查看，基础可用但未做压缩）、Phase 11（提示词已含图片说明）
+> - ⬜ 未实现：Phase 7（图片压缩）、Phase 8（历史存储图片）、Phase 9（设置开关）、Phase 10（页面截屏）、Phase 12（系统测试）
+
 ---
 
 ## 1. 调研分析（已完）
@@ -35,11 +40,11 @@ providers.js: _streamRequest → messages.content 为数组 → fetch API
 
 ## 2. UI：图片上传与粘贴
 
-- [ ] 聊天输入区增加 **📎 附件按钮**，触发 `<input type="file" accept="image/*">`
-- [ ] 支持 **Ctrl+V 粘贴**图片（clipboard API → File → base64）
-- [ ] 输入区上方显示 **图片预览条**（缩略图 + 删除按钮）
-- [ ] 输入框高度随图片自动调整
-- [ ] 限制单次最多 5 张图片
+- [x] 聊天输入区增加 **📎 附件按钮**，触发 `<input type="file" accept="image/*">`
+- [x] 支持 **Ctrl+V 粘贴**图片（clipboard API → File → base64）
+- [x] 输入区上方显示 **图片预览条**（缩略图 + 删除按钮）
+- [x] 输入框高度随图片自动调整
+- [x] 限制单次最多 5 张图片
 
 ## 3. UI：图片渲染与查看
 
@@ -50,24 +55,24 @@ providers.js: _streamRequest → messages.content 为数组 → fetch API
 
 ## 4. 消息模型
 
-- [ ] 定义 `Attachment` 类型：`{ id, name, type, data(base64), preview(dataURL缩略图) }`
-- [ ] `state.attachments` 暂存当前输入区的图片
-- [ ] `sendCoachMessage` 将 text + attachments 合并为 content 数组
-- [ ] `chatHistory` 中的 message.content 支持 string | array 两种格式
-- [ ] 历史加载时兼容旧格式（纯 string）
+- [x] 定义 `Attachment` 类型：`{ id, name, type, data(base64), preview(dataURL缩略图) }`
+- [x] `state.attachments` 暂存当前输入区的图片
+- [x] `sendCoachMessage` 将 text + attachments 合并为 content 数组
+- [x] `chatHistory` 中的 message.content 支持 string | array 两种格式
+- [x] 历史加载时兼容旧格式（纯 string）
 
 ## 5. AI Provider（providers.js）
 
-- [ ] `_streamRequest` 检测 messages 中 content 是否为数组，若是则原样发送
-- [ ] `coachChat` 接收 attachments 参数，拼接为 content 数组
-- [ ] `translateStream` 同样支持（截图翻译场景）
+- [x] `_streamRequest` 检测 messages 中 content 是否为数组，若是则原样发送
+- [x] `coachChat` 接收 attachments 参数，拼接为 content 数组
+- [x] `translateStream` 同样支持（截图翻译场景）
 - [ ] 注意：system prompt 的 content 仍为 string，不需要改
 
 ## 6. 背景层（background.js）
 
-- [ ] `startStreaming` 的 message 中增加 `attachments` 字段
-- [ ] 透传给 `hintGenerator.coachChat(problemText, chatHistory, attachments, ...)`
-- [ ] 同样处理 `startPlanStreaming`（学习计划不涉及图片，可忽略）
+- [x] `startStreaming` 的 message 中增加 `attachments` 字段
+- [x] 透传给 `hintGenerator.coachChat(problemText, chatHistory, attachments, ...)`
+- [x] 同样处理 `startPlanStreaming`（学习计划不涉及图片，可忽略）
 
 ## 7. 图片压缩
 
