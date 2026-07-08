@@ -74,17 +74,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
   // ==================== Port-based Keepalive ====================
-// MV3 service worker 休眠是流式中断的根因。
-// 使用 chrome.alarms + 长连接 双重保活，确保长思考模型不会中断。
+// MV3 service worker 休眠是流式中断之根因。
+// 三重保活：chrome.alarms + 长连接 + storage.session 心跳
+// note: chrome.alarms 之 periodInMinutes 在 MV3 最小为 1 分钟，
+//       故次保活仅作兜底，主保活靠 stream-fetcher 内 setInterval。
 const _streamPorts = new Map();
 let _activeStreams = new Set(); // 当前活跃的 streamId
 
-// 启动流式保活：创建 chrome alarm 防止 Service Worker 休眠
+// 启动流式保活
 function startStreamKeepalive(streamId) {
   _activeStreams.add(streamId);
   const alarmName = 'ojbetter-keepalive-' + streamId;
   console.log('[keepalive] Starting for', streamId);
-  chrome.alarms.create(alarmName, { delayInMinutes: 0.25, periodInMinutes: 0.25 }); // 每 15 秒
+  // MV3 periodInMinutes 最小值 1，设 1 即可
+  chrome.alarms.create(alarmName, { delayInMinutes: 0, periodInMinutes: 1 });
+  // 立即写一次 session heartbeat（轻量，不入 local 存储）
+  chrome.storage.session.set({ ['hb:' + streamId]: Date.now() }).catch(() => {});
 }
 
 // 停止流式保活
@@ -93,16 +98,21 @@ function stopStreamKeepalive(streamId) {
   const alarmName = 'ojbetter-keepalive-' + streamId;
   console.log('[keepalive] Stopping for', streamId);
   chrome.alarms.clear(alarmName).catch(() => {});
+  chrome.storage.session.remove('hb:' + streamId).catch(() => {});
 }
 
-// Alarm 触发器：定期唤醒 Service Worker，向 storage 写入心跳
+// Alarm 触发器：定期唤醒 Service Worker，写入心跳
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name.startsWith('ojbetter-keepalive-')) {
     const streamId = alarm.name.replace('ojbetter-keepalive-', '');
+    if (!_activeStreams.has(streamId)) return;
     const key = 'stream:' + streamId;
-    chrome.storage.local.set({
-      [key]: { status: 'streaming', keepalive: Date.now() }
-    }).catch(() => {});
+    const now = Date.now();
+    // 同时写入 local（sidepanel 可见）和 session（轻量保活）
+    Promise.all([
+      chrome.storage.local.set({ [key]: { status: 'streaming', keepalive: now } }),
+      chrome.storage.session.set({ ['hb:' + streamId]: now })
+    ]).catch(() => {});
   }
 });
 
