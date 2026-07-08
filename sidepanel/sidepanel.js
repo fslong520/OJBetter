@@ -1309,11 +1309,17 @@ function renderMarkdown(text) {
   }
   if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
 
-  return result.join('\n')
+  const html = result.join('\n')
     // 6. 还原占位符
     .replace(/\x00C(\d+)\x00/g, (_, i) => codeBlocks[i] || '')
     .replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '')
     .replace(/\x00T(\d+)\x00/g, (_, i) => tableBlocks[i] || '');
+  // 防御性 sanitize：AI 生成内容经 DOMPurify 过滤，防止 XSS
+  return DOMPurify.sanitize(html, {
+    ADD_ATTR: ['target', 'rel'],
+    FORBID_TAGS: ['style', 'script', 'iframe', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
+  });
 }
 
 
