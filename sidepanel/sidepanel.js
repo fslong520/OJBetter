@@ -791,10 +791,10 @@ async function finalizeAssistantEl(isTranslate = false) {
   // 教练消息：显示风格头像（translate 模式跳过）
   if (!isTranslate) {
     const coachMap = {
-      default:    ['🧭', '专业温和型'],
-      encouraging:['🌟', '热情鼓励型'],
-      humorous:   ['😎', '幽默风趣型'],
-      direct:     ['⚡', '直截了当型']
+      default:    ['🧭', '老周'],
+      encouraging:['🌟', '小满'],
+      humorous:   ['😎', '老梗'],
+      direct:     ['⚡', '阿锐']
     };
     const key = settings.coachStyle || 'default';
     const [emoji, name] = coachMap[key] || coachMap.default;

@@ -77,6 +77,7 @@ async function loadSettings() {
     // 教练设置
     document.getElementById('default-hint-level').value = s.defaultHintLevel || 2;
     document.getElementById('coach-style-select').value = s.coachStyle || 'default';
+    renderCoachStylePreview(s.coachStyle || 'default');
     document.getElementById('auto-detect-code').checked = s.autoDetectCode !== false; // 默认开启
 
     // 语音设置
@@ -279,6 +280,11 @@ function bindEvents() {
 
   // 刷新存储信息
   document.getElementById('refresh-storage-btn').addEventListener('click', updateStorageInfo);
+
+  // 教练风格预览
+  document.getElementById('coach-style-select').addEventListener('change', (e) => {
+    renderCoachStylePreview(e.target.value);
+  });
 }
 
 // ==================== 测试模型 ====================
@@ -439,14 +445,31 @@ function formatBytes(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+const COACH_STYLES = {
+  default:    { name: '老周', emoji: '🧭', tagline: '沉稳靠谱的学长', desc: '话不多但每句在点。用"说白了、其实、你看"把复杂讲简单，温和直接不绕弯。' },
+  encouraging: { name: '小满', emoji: '🌟', tagline: '炸裂热情的元气好友', desc: '全程 high energy，每轮先具体夸你，把 bug 当关卡。感叹号+emoji 拉满动力。' },
+  humorous:   { name: '老梗', emoji: '😎', tagline: '段子手型教练', desc: '比喻狂魔+自黑+玩梗，把算法讲成脱口秀。靠语言有趣，几乎不用 emoji。' },
+  direct:     { name: '阿锐', emoji: '⚡', tagline: '竞赛圈技术大佬', desc: '话极少极准，带冷幽默。做对"对。下一步。"出错直接点破。不寒暄不废话。' }
+};
+
 function getStyleName(key) {
-  const map = {
-    'default': '专业温和型',
-    'encouraging': '热情鼓励型',
-    'humorous': '幽默风趣型',
-    'direct': '直截了当型'
-  };
-  return map[key] || '未知';
+  return COACH_STYLES[key]?.name || '老周';
+}
+
+function renderCoachStylePreview(key) {
+  const el = document.getElementById('coach-style-preview');
+  if (!el) return;
+  const style = COACH_STYLES[key] || COACH_STYLES.default;
+  el.innerHTML = `
+    <div class="coach-preview-card">
+      <div class="coach-preview-header">
+        <span class="coach-preview-emoji">${style.emoji}</span>
+        <span class="coach-preview-name">${style.name}</span>
+        <span class="coach-preview-tagline">${style.tagline}</span>
+      </div>
+      <p class="coach-preview-desc">${style.desc}</p>
+    </div>
+  `;
 }
 
 // ==================== 语音列表 ====================
