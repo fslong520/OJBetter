@@ -643,7 +643,7 @@ function startStream(msg, extra) {
       cleanup();
       showThinking(false);
       if (msg.coachMode || msg.isTranslate) {
-        finalizeAssistantEl();
+        finalizeAssistantEl(msg.isTranslate);
       } else {
         finalizeHintContent();
       }
@@ -770,10 +770,12 @@ function streamToAssistantEl(text) {
   const ta = $('#thinking-area'); if (ta) ta.style.display = 'block';
 }
 
-async function finalizeAssistantEl() {
+async function finalizeAssistantEl(isTranslate = false) {
   const el = _currentAssistantEl;
   if (!el) return;
   const bubble = el.querySelector('.chat-bubble');
+  // 读取 settings（tts + coachStyle 共用一次）
+  const settings = await getSettings();
   if (bubble && bubble._raw) {
     bubble.dataset.markdown = bubble._raw;
     const sanitized = obfuscateCode(bubble._raw || '');
@@ -782,12 +784,26 @@ async function finalizeAssistantEl() {
     addCopyBtn(bubble);
     const ttsBtn = addTtsBtn(el);
     // 自动朗读：若启用语音播报，新消息自动朗读
-    if (ttsBtn) {
-      const settings = await getSettings();
-      if (settings.ttsEnabled) {
-        ttsBtn.click();
-      }
+    if (ttsBtn && settings.ttsEnabled) {
+      ttsBtn.click();
     }
+  }
+  // 教练消息：显示风格头像（translate 模式跳过）
+  if (!isTranslate) {
+    const coachMap = {
+      default:    ['🧭', '专业温和型'],
+      encouraging:['🌟', '热情鼓励型'],
+      humorous:   ['😎', '幽默风趣型'],
+      direct:     ['⚡', '直截了当型']
+    };
+    const key = settings.coachStyle || 'default';
+    const [emoji, name] = coachMap[key] || coachMap.default;
+    if (!el.querySelector('.bubble-header')) {
+      const header = document.createElement('div');
+      header.className = 'bubble-header';
+      el.insertBefore(header, bubble);
+    }
+    el.querySelector('.bubble-header').innerHTML = emoji + ' ' + name;
   }
   // 仅当 _currentAssistantEl 未被新流覆盖时才清空
   if (_currentAssistantEl === el) _currentAssistantEl = null;
