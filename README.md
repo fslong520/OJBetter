@@ -4,8 +4,8 @@
 
 **引导孩子独立思考，用流程图和伪代码启发编程思维**
 
-[![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-v1.2.0-green?style=flat-square)](https://github.com/fslong520/OJBetter)
-[![Edge Extension](https://img.shields.io/badge/Edge%20Extension-v1.2.0-blue?style=flat-square)](https://github.com/fslong520/OJBetter)
+[![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-v1.3.0-green?style=flat-square)](https://github.com/fslong520/OJBetter)
+[![Edge Extension](https://img.shields.io/badge/Edge%20Extension-v1.3.0-blue?style=flat-square)](https://github.com/fslong520/OJBetter)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)]()
 
 </div>

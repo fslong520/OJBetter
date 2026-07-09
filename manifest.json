@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OJBetter",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "渐进式 AI 编程助教 - 引导孩子独立思考，用流程图和伪代码启发编程思维，帮孩子更好的使用 OJ",
   "homepage_url": "https://github.com/fslong520/OJBetter",
   "default_locale": "zh_CN",
