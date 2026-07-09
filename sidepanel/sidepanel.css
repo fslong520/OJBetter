@@ -760,13 +760,20 @@ body {
 /* ==================== 灵光卡片 ==================== */
 .spark-card {
   margin: 8px 0 4px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-left: 3px solid #F59E0B;
-  background: #FFFBEB;
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   font-size: 12px;
   line-height: 1.5;
   color: #92400E;
+  animation: spark-in 0.4s ease-out;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+}
+
+@keyframes spark-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .spark-card::before {
@@ -774,15 +781,17 @@ body {
   display: block;
   font-weight: 600;
   font-size: 11px;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   color: #D97706;
+  letter-spacing: 0.02em;
 }
 
 @media (prefers-color-scheme: dark) {
   .spark-card {
-    background: #2D2B1E;
+    background: linear-gradient(135deg, #2D2B1E 0%, #3D3520 100%);
     color: #FDE68A;
     border-left-color: #F59E0B;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
   }
   .spark-card::before {
     color: #FBBF24;

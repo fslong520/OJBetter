@@ -215,7 +215,7 @@ function startBrainstorm(problemText) {
     },
     onDone: (full) => {
       showThinking(false);
-      // 头脑风暴模式：保留自定义元素，不做全量 innerHTML 替换
+      // 头脑风暴模式：渲染 markdown 后重新挂载 spark card
       const el = _currentAssistantEl;
       if (el) {
         const bubble = el.querySelector('.chat-bubble');
@@ -227,12 +227,13 @@ function startBrainstorm(problemText) {
           el.insertBefore(header, bubble);
         }
         header.innerHTML = '🦉 小智';
-        // 保留流式文本（不做 markdown 渲染，避免破坏 spark card）
         if (bubble) {
           const streamText = bubble._raw || '';
           if (streamText && !bubble.classList.contains('brain-bubble')) {
-            // 只做简单处理：保留换行
-            bubble.innerHTML = bubble.innerHTML.replace(/\n/g, '<br>');
+            const sparkCards = bubble.querySelectorAll('.spark-card');
+            const sanitized = obfuscateCode(streamText);
+            bubble.innerHTML = renderMarkdown(sanitized);
+            sparkCards.forEach(card => bubble.appendChild(card));
             bubble.classList.add('brain-bubble');
           }
         }
@@ -316,12 +317,14 @@ function sendBrainstormMessage() {
     },
     onDone: (full) => {
       showThinking(false);
-      // 同 startBrainstorm：不做全量 markdown 渲染，保留 spark card
       const el = _currentAssistantEl;
       if (el) {
         const bubble = el.querySelector('.chat-bubble');
         if (bubble && bubble._raw && !bubble.classList.contains('brain-bubble')) {
-          bubble.innerHTML = bubble.innerHTML.replace(/\n/g, '<br>');
+          const sparkCards = bubble.querySelectorAll('.spark-card');
+          const sanitized = obfuscateCode(bubble._raw);
+          bubble.innerHTML = renderMarkdown(sanitized);
+          sparkCards.forEach(card => bubble.appendChild(card));
           bubble.classList.add('brain-bubble');
         }
         // 统一显示 "小智"，无角色徽章
@@ -351,6 +354,9 @@ function streamSparkCard(text) {
   if (!_currentAssistantEl) return;
   const bubble = _currentAssistantEl.querySelector('.chat-bubble');
   if (!bubble) return;
+  if (bubble.firstElementChild?.classList?.contains('thinking-indicator')) {
+    bubble.firstElementChild.remove();
+  }
   // 创建灵光卡片
   let card = bubble.querySelector('.spark-card');
   if (!card) {
@@ -746,6 +752,9 @@ function streamToAssistantEl(text) {
   if (!_currentAssistantEl) return;
   const bubble = _currentAssistantEl.querySelector('.chat-bubble');
   if (!bubble) return;
+  if (bubble.firstElementChild?.classList?.contains('thinking-indicator')) {
+    bubble.firstElementChild.remove();
+  }
   // Optimized DOM update: Append a new text node instead of rewriting the whole string
   // This prevents layout thrashing and makes scrolling/typing feel instant
   if (!bubble._lastTextNode) {
