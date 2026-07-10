@@ -5,15 +5,12 @@
 const ZEN_API = 'https://opencode.ai/zen/v1';
 
 /**
- * 兜底的免费模型列表。
- * 仅当 /models 接口完全不可用时才会用到。
- * 正常情况下优先从接口拉取 + 实测验证可用性。
+ * 兜底模型（仅 /models 接口完全不可用时用）。
+ * 不要在这里写死 API 不存在的模型——opencode 模型会变，以服务器返回为准。
+ * 动态加载优先：/models → 逐一实测 → 缓存。此处仅留一个已知可用的兜底。
  */
 const FALLBACK_MODELS = [
-  { id: 'big-pickle', name: 'Big Pickle' },
-  { id: 'nemotron-3-super-free', name: 'Nemotron 3 Super (NVIDIA)' },
-  { id: 'hy3-preview-free', name: 'Hy3 Preview' },
-  { id: 'minimax-m2.5-free', name: 'MiniMax M2.5' }
+  { id: 'big-pickle', name: 'Big Pickle' }
 ];
 
 // ==================== 初始化 ====================
