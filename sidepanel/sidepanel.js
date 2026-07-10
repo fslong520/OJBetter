@@ -443,7 +443,6 @@ function streamTranslate(problemText) {
 
   const title = $('#chat-title'); if (title) title.textContent = '🌐 翻译中...';
   showThinking(true);
-  _currentAssistantEl = addChatMessage('assistant', '', true);
   startStream({
     type: 'generateHintStream',
     problemText: problemText.slice(0, 10000),
@@ -612,7 +611,7 @@ function startStream(msg, extra) {
   // 禁用输入
   setChatInputEnabled(false);
 
-  const onChange = (changes, areaName) => {
+  const onChange = async (changes, areaName) => {
     if (areaName !== 'local') return;
     const key = 'stream:' + streamId;
     if (!changes[key]) return;
@@ -643,7 +642,7 @@ function startStream(msg, extra) {
       cleanup();
       showThinking(false);
       if (msg.coachMode || msg.isTranslate) {
-        finalizeAssistantEl(msg.isTranslate);
+        await finalizeAssistantEl(msg.isTranslate);
       } else {
         finalizeHintContent();
       }
