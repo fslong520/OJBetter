@@ -1167,7 +1167,8 @@ function renderMarkdown(text) {
   // 清理流式残留
   raw = raw.replace(/^[\s\n]*\d+\s*l\s*/, '');
 
-  let p = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // 不提前 HTML 转义——marked 自动处理 code 内转义，DOMPurify 兜底防 XSS
+  let p = raw;
 
   // 1. 保护代码块
   const codeBlocks = [];
