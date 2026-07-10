@@ -87,8 +87,9 @@ async function loadSettings() {
     // 语音列表在刷新时填充，但先尝试加载已保存的音色
     populateVoiceList(s.ttsVoice || '');
 
-    // 先用默认模型占位，fetchModels 会立即用内置列表填充
-    populateModelSelect(FALLBACK_MODELS, s.freeModel || 'big-pickle');
+    // 先用缓存/默认模型占位，fetchModels 会立即用实测列表填充
+    const models = s.cachedModels?.length ? s.cachedModels : FALLBACK_MODELS;
+    populateModelSelect(models, s.freeModel || 'big-pickle');
 
     // 滑块实时显示
     bindSliderEvents();
@@ -142,9 +143,10 @@ async function fetchModels() {
     const resp = await fetch(`${ZEN_API}/models`);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
-    const rawModels = (data.data || [])
-      .filter(m => m.id && (m.id.includes('free') || m.id === 'big-pickle'))
-      .map(m => ({ id: m.id, name: m.id }));
+    let rawModels = (data.data || []).map(m => ({ id: m.id, name: m.id }));
+      if (!rawModels.find(m => m.id === 'big-pickle')) {
+        rawModels.push({ id: 'big-pickle', name: 'Big Pickle' });
+      }
 
     if (rawModels.length === 0) throw new Error('empty list');
 
@@ -156,6 +158,11 @@ async function fetchModels() {
     const failed  = results.filter(r => !r.ok).map(r => r.model.id);
 
     if (working.length === 0) throw new Error('all models failed');
+
+    // Always include big-pickle as known-good default
+    if (!working.find(m => m.id === 'big-pickle')) {
+      working.unshift({ id: 'big-pickle', name: 'Big Pickle' });
+    }
 
     // 3. 只展示能用的
     populateModelSelect(working, working.some(m => m.id === savedModel) ? savedModel : working[0].id);
@@ -381,6 +388,13 @@ async function testCustomModel() {
 async function saveSettings() {
   const mode = document.querySelector('input[name="model-mode"]:checked')?.value || 'free';
 
+  // Preserve existing cached models — don't overwrite with FALLBACK_MODELS
+  let existingCached = [];
+  try {
+    const r = await chrome.runtime.sendMessage({ type: 'getSettings' });
+    existingCached = r?.settings?.cachedModels || [];
+  } catch (_) {}
+
   const settings = {
     modelMode: mode,
     freeModel: document.getElementById('free-model-select').value,
@@ -401,8 +415,7 @@ async function saveSettings() {
     ttsEnabled: document.getElementById('tts-enabled').checked,
     ttsRate: parseFloat(document.getElementById('tts-rate').value),
     ttsVoice: document.getElementById('tts-voice').value || '',
-    // 保留内置模型列表，以备后用
-    cachedModels: FALLBACK_MODELS
+    cachedModels: existingCached.length > 0 ? existingCached : FALLBACK_MODELS
   };
 
   try {
