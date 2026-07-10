@@ -308,14 +308,8 @@ body {
   font-size: 12px;
 }
 .chat-bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
-.chat-bubble code { 
-  background: rgba(0,0,0,0.06);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
-  font-size: 11px;
-}
-.chat-bubble .inline-code {
+.chat-bubble p > code,
+.chat-bubble li > code {
   background: #ede9fe;
   color: #5b21b6;
   padding: 1px 6px;
@@ -442,8 +436,8 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  .chat-bubble code { background: rgba(255,255,255,0.08); }
-  .chat-bubble .inline-code { background: #2d2b55; color: #cba6f7; }
+  .chat-bubble p > code,
+  .chat-bubble li > code { background: #2d2b55; color: #cba6f7; }
   .chat-bubble pre { background: #11111b; border-color: #313244; }
   .chat-bubble .code-header { background: #313244; }
 }
