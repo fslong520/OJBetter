@@ -5,6 +5,7 @@
 import { exportLearningReport } from '../src/export/report-export.js';
 import { getSettings } from '../src/storage/settings.js';
 import { BrainstormEngine } from '../src/brainstorm/BrainstormEngine.js';
+import { marked } from '../src/lib/marked.min.js';
 
 
 // 教练模式状态
@@ -1168,119 +1169,47 @@ function renderMarkdown(text) {
 
   let p = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // 1. 保护代码块 (避免内部换行干扰后续 split)
+  // 1. 保护代码块
   const codeBlocks = [];
   p = p.replace(/```(\S*)\s*\n([\s\S]*?)```/g, (_, lang, code) => {
     const id = codeBlocks.length;
     const l = (lang||'').toLowerCase();
-    // 将代码块保存为 HTML，内部保留换行
     codeBlocks.push(`<pre class="code-block${l?' lang-'+l:''}"><div class="code-header">${l||'代码'}</div><code>${esc(code.trim())}</code></pre>`);
     return `\x00C${id}\x00`;
   });
 
-  // 2. 保护 LaTeX 并做基础符号替换
+  // 2. 保护 LaTeX（全部4种格式）并做基础符号替换
   const latexBlocks = [];
-  const renderLaTeX = (tex) => {
-    // 去除首尾的 $ 或 $$
-    let clean = tex.replace(/^\\$\\$/, '').trim().replace(/\\$\\$$/, '');
-    clean = clean.replace(/^\\$/, '').trim().replace(/\\$$/, '');
-    // 基础数学符号转换
-    return clean
-      .replace(/\\le/g, '≤').replace(/\\ge/g, '≥')
-      .replace(/\\neq/g, '≠').replace(/\\to/g, '→')
-      .replace(/\\times/g, '×').replace(/\\div/g, '÷')
-      .replace(/\\pm/g, '±').replace(/\\approx/g, '≈');
-  };
-  p = p.replace(/\$\$([\s\S]*?)\$\$|\$([^$]+)\$/g, (match, multi, single) => {
-    const id = latexBlocks.length;
-    latexBlocks.push(renderLaTeX(multi || single));
-    return `\x00L${id}\x00`;
-  });
+  p = p.replace(
+    /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|\$([^$]+)\$/g,
+    (match, dbl, disp, inline, single) => {
+      const id = latexBlocks.length;
+      const tex = (dbl || disp || inline || single || '').trim();
+      latexBlocks.push(tex
+        .replace(/\\le/g, '≤').replace(/\\ge/g, '≥')
+        .replace(/\\neq/g, '≠').replace(/\\to/g, '→')
+        .replace(/\\times/g, '×').replace(/\\div/g, '÷')
+        .replace(/\\pm/g, '±').replace(/\\approx/g, '≈'));
+      return `\x00L${id}\x00`;
+    }
+  );
 
-  // 3. 处理文本中的下标 (在保护代码和 LaTeX 之后)
-  // 匹配: U_{i,j} or x_i
+  // 3. 处理下标（在保护代码和 LaTeX 之后）
   p = p.replace(/([a-zA-Z0-9])_\{([a-zA-Z0-9,\s]+)\}/g, '$1<sub>$2</sub>');
   p = p.replace(/([a-zA-Z0-9])_([0-9a-zA-Z]+)/g, '$1<sub>$2</sub>');
 
-  // 4. 基础 Markdown
-  p = p.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
-    .replace(/^### (.+)$/gm, '<h4 class="section-title">$1</h4>')
-    .replace(/^## (.+)$/gm, (_, t) => {
-      const cls = /解题步骤|解题|步骤/.test(t) ? 'title-steps' : /流程图|流程|图/.test(t) ? 'title-flow' : /知识点|知识|概念/.test(t) ? 'title-knowledge' : /试一试|试试|练习/.test(t) ? 'title-try' : /输入|输出|格式/.test(t) ? 'title-io' : 'section-title';
-      return `<h3 class="${cls}">${t}</h3>`;
-    })
-    .replace(/^# (.+)$/gm, '<h2 class="section-title main-title">$1</h2>')
-    .replace(/^---$/gm, '<hr class="divider">')
-    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>').replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // 4. marked 解析（headers, bold, italic, 列表, 表格, blockquote, 链接, 行内代码等）
+  p = marked.parse(p, { breaks: true, gfm: true });
 
-  // 4.5 Tables and Links
-  // Links [text](url) — inline, before tables so they work inside cells
-  p = p.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    return '<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + text + '</a>';
-  });
-  // Tables: | header |\n| --- | --- |\n| data | → <table>
-  const tableBlocks = [];
-  p = p.replace(/^\|(.+)\|\s*\n\|([-:| ]+)\|\s*\n((?:\|.+\|\s*\n)*)/gm, (match, header, sep, body) => {
-    const id = tableBlocks.length;
-    const headers = header.split('|').map(c => c.trim()).filter(c => c);
-    const bodyRows = body.trim() ? body.trim().split('\n').filter(r => r.trim()).map(r =>
-      r.replace(/^\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim())
-    ) : [];
-    let html = '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px;">';
-    html += '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
-    if (bodyRows.length) {
-      html += '<tbody>';
-      for (const row of bodyRows) {
-        html += '<tr>' + row.map(c => '<td>' + c + '</td>').join('') + '</tr>';
-      }
-      html += '</tbody>';
-    }
-    html += '</table>';
-    tableBlocks.push(html);
-    return '\x00T' + id + '\x00';
-  });
+  // 5. 将占位符从 <p> 中解出（块级元素不应在 <p> 内）
+  p = p.replace(/<p>(\x00[CL]\d+\x00)<\/p>/g, '$1');
 
-  // 5. 分行处理段落
-  const lines = p.split('\n'); 
-  const result = []; 
-  let para = [];
+  // 6. 还原占位符
+  p = p.replace(/\x00C(\d+)\x00/g, (_, i) => codeBlocks[i] || '');
+  p = p.replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '');
 
-  for (const line of lines) {
-    // 检查是否是占位符（块级元素）
-    if (line.includes('\x00C') || line.includes('\x00L') || line.includes('\x00T')) {
-       if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
-       // 直接作为块级元素输出
-       // 注意：占位符可能是一整行
-       result.push(line);
-       para = [];
-       continue;
-    }
-
-    const t = line.trim();
-    if (!t) { 
-      if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } 
-      continue; 
-    }
-    // 已经是 HTML 标签的行（h2, ul, li, div, etc）
-    if (/^<(h[2-4]|ul|ol|li|pre|hr|blockquote|div|sub|br)/.test(t)) { 
-      if (para.length) { result.push('<p>'+para.join('<br>')+'</p>'); para = []; } 
-      result.push(t); 
-    } else { 
-      para.push(t); 
-    }
-  }
-  if (para.length) result.push('<p>'+para.join('<br>')+'</p>');
-
-  const html = result.join('\n')
-    // 6. 还原占位符
-    .replace(/\x00C(\d+)\x00/g, (_, i) => codeBlocks[i] || '')
-    .replace(/\x00L(\d+)\x00/g, (_, i) => latexBlocks[i] || '')
-    .replace(/\x00T(\d+)\x00/g, (_, i) => tableBlocks[i] || '');
   // 防御性 sanitize：AI 生成内容经 DOMPurify 过滤，防止 XSS
-  return DOMPurify.sanitize(html, {
+  return DOMPurify.sanitize(p, {
     ADD_ATTR: ['target', 'rel'],
     FORBID_TAGS: ['style', 'script', 'iframe', 'form', 'input', 'button'],
     FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover']
