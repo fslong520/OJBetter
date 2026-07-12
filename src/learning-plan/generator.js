@@ -6,6 +6,8 @@ import { getSettings } from '../storage/settings.js';
 import { ZEN_BASE_URL } from '../config/models.js';
 import { getUnifiedCoachPrompt, DEFAULT_PERSONA_KEY } from '../coach/personas.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
+import { stageAnalyzer, getStageLabel } from './stage-analyzer.js';
+import { getKnowledgeAggregates, getAllKnowledgeRecords } from '../storage/knowledgeGraph.js';
 
 class LearningPlanGenerator {
   async analyzeHistory() {
@@ -49,6 +51,44 @@ class LearningPlanGenerator {
   async streamPlan(currentChatHistory, currentProblemText, onThinking, onContent, onDone, onError) {
     const analysis = await this.analyzeHistory();
 
+    const [aggregates, stageResult, allKgRecords] = await Promise.all([
+      getKnowledgeAggregates().catch(() => null),
+      stageAnalyzer.analyzeStage().catch(() => null),
+      getAllKnowledgeRecords().catch(() => [])
+    ]);
+
+    const stageText = stageResult && !stageResult.insufficientData
+      ? `
+## 学习阶段分析
+- 当前阶段：${getStageLabel(stageResult.currentStage)} (${stageResult.currentStage})
+- 自信程度：${(stageResult.stageConfidence * 100).toFixed(0)}%
+- 薄弱知识点：${(stageResult.weakPoints || []).join('、') || '暂无'}
+- 掌握较好：${(stageResult.strongPoints || []).join('、') || '暂无'}
+- 推荐难度范围：CF ${stageResult.recommendedRating?.[0] || 800} ~ ${stageResult.recommendedRating?.[1] || 1200}
+- ${stageResult.summary || ''}`
+      : '';
+
+    const kgText = aggregates && aggregates.totalRecords > 0
+      ? `\n## 知识图谱统计\n总记录：${aggregates.totalRecords} 条`
+      : '';
+
+    const codeKgRecords = (allKgRecords || [])
+      .filter(r => r.codeSnippets && r.codeSnippets.length > 0)
+      .slice(0, 3);
+
+    let codeInsightText = '';
+    if (codeKgRecords.length > 0) {
+      codeInsightText = '\n## 学生代码质量观察\n' + codeKgRecords.map(r => {
+        const parts = [];
+        if (r.codeQuality) parts.push(`· 代码质量：${r.codeQuality}`);
+        if (r.commonMistakes?.length) parts.push(`· 常见错误：${r.commonMistakes.join('、')}`);
+        (r.codeSnippets || []).forEach(s => {
+          parts.push(`· 写了${s.lineCount}行${s.language}代码：${s.summary}`);
+        });
+        return parts.join('\n');
+      }).filter(Boolean).join('\n\n');
+    }
+
     // 获取最近的10条有对话记录的题目
     const allHistory = await getAllHistory();
     const recentConversations = allHistory
@@ -78,39 +118,45 @@ class LearningPlanGenerator {
     const personaKey = settings.coachStyle || DEFAULT_PERSONA_KEY;
     const systemPrompt = getUnifiedCoachPrompt(personaKey);
 
-    const userPrompt = `请根据以下学习记录，为这位同学制定**明天**的学习计划。
+    const userPrompt = `请根据以下学习记录，为这位同学制定**明天**的学习推荐。
 
 ## 历史学习分析
 ${historyText}
-
-## 最近10道题的对话记录
+${stageText}
+${kgText}
+${codeInsightText}
+## 最近对话记录
 ${recentChatText}
 
-## 当前进行中的对话
+## 当前对话
 ${currentChatText}
 
-## 要求
-1. 只规划**明天**的学习内容，不要多天计划
-2. 必须包含具体的**题单**（3-5道题，说明题目类型或知识点）
-3. 先分析学生当前状态（在思考区输出），再给出计划
-4. 输出格式如下（直接输出，不要JSON）：
+## 硬性输出格式（必须严格遵守）
+你的输出必须分成两段，缺一不可：
 
-### 学习状态分析
-（简要分析学生当前在哪个阶段、哪些知识点需要加强）
+### 📝 学习建议
+2-3句话，分析学生薄弱知识点，指明明天改进方向。
+这里**不要**包含任何题目——题目全部放在下方练习题区。
 
-### 明天计划
-**重点：**[最薄弱的知识点]
+### ✏️ 练习题
+列出 3-5 道具体题目，每道题必须包含 OJ 平台 + **精确题号**（如 P1048、1741A、abc283_d），
+不可只写题目名或"一道洛谷的题"这种模糊描述。
+格式：{OJ平台} {题号} {可选：题目名} — {知识点标签} (CF {难度分})
 
-**题单：**
-1. [题目类型/知识点] 具体描述或建议（如：洛谷 P1001 或 数组模拟题）
-2. [题目类型/知识点] 具体描述或建议
-3. [题目类型/知识点] 具体描述或建议
+有效示例：
+✏️ 练习题：
+洛谷 P1048 采药 — DP/0-1背包 (CF 1200)
+CF 1741A — 字符串 (CF 800)
+AtCoder abc283_d — 栈 (CF 1000)
 
-**建议：**
-- [具体建议1]
-- [具体建议2]
-
-注意：题单要具体，最好能让学生知道去哪里找这些题（如洛谷、Codeforces、AtCoder等）。`;
+## 其他要求
+1. 只规划**明天**的内容，不要多天计划
+2. 练习题 3-5 道，难度分布合理，重点覆盖薄弱知识点
+3. 不要推荐学生已做过的题目（参考历史记录）
+4. 优先从洛谷、Codeforces、AtCoder 找题
+5. 直接输出，不要 JSON，不要额外说明
+6. 练习题必须写具体题号，不可模糊描述
+7. 结合学生的代码质量观察，针对性地推荐能改进其编码习惯和常见错误的练习`;
 
     try {
       const config = await this.getConfig();

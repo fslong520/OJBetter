@@ -818,16 +818,15 @@ function addPlanCopyBtn(container, markdownText) {
   const btn = document.createElement('button');
   btn.className = 'plan-copy-btn';
   btn.title = '复制 Markdown';
-  btn.textContent = '📋 复制 Markdown';
-  btn.style.cssText = 'position:absolute;top:8px;right:8px;padding:4px 8px;font-size:12px;cursor:pointer;background:#4A90D9;color:#fff;border:none;border-radius:4px;z-index:10;';
+  btn.textContent = '📋 复制';
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     navigator.clipboard.writeText(markdownText || '').then(() => {
       btn.textContent = '✓ 已复制';
-      setTimeout(() => { btn.textContent = '📋 复制 Markdown'; }, 1500);
+      setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
     }).catch(() => {
       btn.textContent = '✗ 失败';
-      setTimeout(() => { btn.textContent = '📋 复制 Markdown'; }, 1500);
+      setTimeout(() => { btn.textContent = '📋 复制'; }, 1500);
     });
   });
   container.style.position = 'relative';
@@ -836,6 +835,7 @@ function addPlanCopyBtn(container, markdownText) {
 
 function addCopyBtn(bubble) {
   if (bubble.querySelector('.copy-md-btn')) return;
+  bubble.style.position = 'relative';
   const btn = document.createElement('button');
   btn.className = 'copy-md-btn';
   btn.title = '复制 Markdown';
@@ -1403,6 +1403,141 @@ function loadHistoryConversation(record) {
   }
   }
 
+// ==================== OJ Link Utilities (inlined, no import needed) ====================
+function _parseProblemId(text) {
+  if (!text || typeof text !== 'string') return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+
+  // Luogu explicit
+  const luoguExplicit = /(?:洛谷|luogu)\s*(P\d+)/i.exec(trimmed);
+  if (luoguExplicit) return { platform: 'luogu', id: luoguExplicit[1].toUpperCase(), confidence: 1.0 };
+
+  // CF explicit
+  const cfExplicit = /(?:codeforces|cf)\s+(\d+[A-Z][A-Za-z0-9]*)/i.exec(trimmed);
+  if (cfExplicit) return { platform: 'codeforces', id: cfExplicit[1], confidence: 1.0 };
+
+  // AtCoder: "ABC 283 D" or "AtCoder ABC 283 D"
+  const atcoderSpaced = /(?:atcoder\s+)?(abc|arc|agc|ahc)\s*(\d+)\s*([a-zA-Z])/i.exec(trimmed);
+  if (atcoderSpaced) {
+    return { platform: 'atcoder', id: atcoderSpaced[1].toLowerCase() + atcoderSpaced[2] + '_' + atcoderSpaced[3].toLowerCase(), confidence: 1.0 };
+  }
+
+  // Inferred: pure P-number → luogu
+  const pureLuogu = /^(P\d+)$/i.exec(trimmed);
+  if (pureLuogu) return { platform: 'luogu', id: pureLuogu[1].toUpperCase(), confidence: 0.8 };
+
+  // Inferred: pure CF number+letter
+  const pureCf = /^(\d+[A-Z][A-Za-z0-9]*)$/.exec(trimmed);
+  if (pureCf) return { platform: 'codeforces', id: pureCf[1], confidence: 0.7 };
+
+  // Compact atcoder: "abc283_d"
+  const atcoderCompact = /^(abc|arc|agc|ahc)(\d+)_([a-z])$/i.exec(trimmed);
+  if (atcoderCompact) {
+    return { platform: 'atcoder', id: atcoderCompact[1].toLowerCase() + atcoderCompact[2] + '_' + atcoderCompact[3].toLowerCase(), confidence: 0.7 };
+  }
+
+  return null;
+}
+
+function _generateProblemUrl(parsed) {
+  if (!parsed || !parsed.platform || !parsed.id) return null;
+  switch (parsed.platform) {
+    case 'luogu': return `https://www.luogu.com.cn/problem/${parsed.id}`;
+    case 'codeforces': {
+      const m = parsed.id.match(/^(\d+)([A-Z][A-Za-z0-9]*)$/);
+      if (!m) return null;
+      return `https://codeforces.com/problemset/problem/${m[1]}/${m[2]}`;
+    }
+    case 'atcoder': {
+      const m = parsed.id.match(/^(abc|arc|agc|ahc)(\d+)_([a-z])$/);
+      if (!m) return null;
+      return `https://atcoder.jp/contests/${m[1]}${m[2]}/tasks/${m[1]}${m[2]}_${m[3]}`;
+    }
+    default: return null;
+  }
+}
+
+async function _verifyProblemUrl(url, timeoutMs = 5000) {
+  if (!url) return { valid: null, status: 0, error: 'no_url' };
+  try {
+    const resp = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(timeoutMs) });
+    return { valid: resp.status >= 200 && resp.status < 300, status: resp.status };
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') return { valid: null, status: 0, error: 'timeout' };
+    return { valid: null, status: 0, error: 'network' };
+  }
+}
+
+function _formatEntryForDisplay(entry) {
+  const status = entry?.status || 'unknown';
+  const STATUS_MAP = {
+    unknown: { cssClass: 'entry-unknown', icon: '🔗', statusText: '格式有误' },
+    valid: { cssClass: 'entry-valid', icon: '✅', statusText: '可点击' },
+    invalid: { cssClass: 'entry-invalid', icon: '❌', statusText: '题号不存在' },
+    unverified: { cssClass: 'entry-unverified', icon: '⏳', statusText: '待确认' }
+  };
+  const info = STATUS_MAP[status] || STATUS_MAP.unknown;
+  let linkHtml = null;
+  if (entry?.url && (status === 'valid' || status === 'unverified')) {
+    linkHtml = `<a href="${entry.url}" target="_blank" class="problem-link">点击做题 ↗</a>`;
+  }
+  return { cssClass: info.cssClass, icon: info.icon, linkHtml, statusText: info.statusText };
+}
+
+function _parseRecommendationOutput(text) {
+  if (!text) return { advice: '', problemLines: [] };
+  const adviceMatch = text.match(/📝\s*学习建议[：:]\s*\n([\s\S]*?)(?=\n✏️|\n###|$)/);
+  const problemsMatch = text.match(/✏️\s*练习题[：:]\s*\n([\s\S]*?)$/);
+  const advice = adviceMatch ? adviceMatch[1].trim() : '';
+  const problemLines = problemsMatch
+    ? problemsMatch[1].split('\n').map(l => l.trim()).filter(l => l && l.length > 5 && !l.startsWith('```'))
+    : [];
+  return { advice, problemLines };
+}
+
+function _renderPlanEntry(entry, displayInfo) {
+  const { icon, cssClass, linkHtml, statusText } = displayInfo;
+  const title = entry.displayTitle || entry.rawText || '';
+  const metaMatch = title.match(/—\s*(.+?)(?:\s*\(CF\s*(\d+)\))?\s*$/);
+  const tags = metaMatch ? metaMatch[1].trim() : '';
+  const rating = metaMatch && metaMatch[2] ? `CF ${metaMatch[2]}` : '';
+  const titleClean = title.replace(/—.*$/, '').trim();
+  return `
+    <div class="plan-problem-entry ${cssClass}">
+      <span class="plan-problem-icon">${icon}</span>
+      <div class="plan-problem-info">
+        <div class="problem-title">${esc(titleClean)}</div>
+        <div class="problem-meta">${esc(tags)}${rating ? ' · ' + rating : ''} · ${statusText}</div>
+      </div>
+      <div class="plan-problem-link">
+        ${linkHtml || '<span class="link-disabled">不可用</span>'}
+      </div>
+    </div>`;
+}
+
+async function _verifyProblemLines(lines, containerEl) {
+  if (!containerEl) return;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const parsed = _parseProblemId(line);
+    const url = parsed ? _generateProblemUrl(parsed) : null;
+    let verification = null;
+    let status = 'unknown';
+    if (parsed && url) {
+      verification = await _verifyProblemUrl(url);
+      status = verification.valid === true ? 'valid' : verification.valid === false ? 'invalid' : 'unverified';
+    }
+    const entry = { rawText: line, parsed, url, displayTitle: line, verification, status };
+    const displayInfo = _formatEntryForDisplay(entry);
+    const placeholder = containerEl.querySelector(`[data-index="${i}"]`);
+    if (placeholder) {
+      placeholder.outerHTML = _renderPlanEntry(entry, displayInfo);
+    }
+  }
+}
+
 let _planStreamId = null;
 let _planStreamCleanup = null;
 
@@ -1446,11 +1581,48 @@ async function showPlan() {
       doneFinalized = true;
       const spinner = c.querySelector('.loading-spinner');
       if (spinner) spinner.style.display = 'none';
-      // 最终渲染+复制按钮
-      streamContent.innerHTML = renderMarkdown(localContent);
-      if (!streamContent.querySelector('.plan-copy-btn')) {
+
+      // Parse into learning advice + practice problems
+      const { advice, problemLines } = _parseRecommendationOutput(localContent);
+
+      if (advice || problemLines.length > 0) {
+        let html = '<div class="plan-section" style="padding:4px 0;">';
+        if (advice) {
+          html += '<div style="font-size:13px;font-weight:600;color:#333;margin:8px 0 4px;">📝 学习建议</div>';
+          html += `<div class="plan-advice-box">${esc(advice)}</div>`;
+        }
+        html += '<div style="font-size:13px;font-weight:600;color:#333;margin:12px 0 4px;">✏️ 练习题</div>';
+        html += '<div id="plan-problem-list" class="plan-problem-list">';
+        if (problemLines.length > 0) {
+          problemLines.forEach((line, i) => {
+            html += `<div class="plan-loading-entry" data-index="${i}">⏳ 验证中...</div>`;
+          });
+        } else {
+          html += '<div style="padding:8px;color:#999;font-size:12px;">未识别到具体题目，请稍后重试</div>';
+        }
+        html += '</div>';
+        html += '<button id="plan-refresh-btn" class="plan-refresh-btn">🔄 刷新推荐</button>';
+        html += '</div>';
+        streamContent.innerHTML = html;
+        addPlanCopyBtn(streamContent, localContent);
+
+        // Verify problems asynchronously
+        if (problemLines.length > 0) {
+          const listEl = document.getElementById('plan-problem-list');
+          _verifyProblemLines(problemLines, listEl);
+        }
+
+        // Refresh handler
+        setTimeout(() => {
+          const refreshBtn = document.getElementById('plan-refresh-btn');
+          if (refreshBtn) refreshBtn.addEventListener('click', showPlan);
+        }, 50);
+      } else {
+        // Fallback: plain markdown
+        streamContent.innerHTML = renderMarkdown(localContent);
         addPlanCopyBtn(streamContent, localContent);
       }
+
       cleanup();
     } else if (v.status === 'error' && !doneFinalized) {
       doneFinalized = true;

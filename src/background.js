@@ -7,6 +7,8 @@ import { hintGenerator } from './ai/providers.js';
 import { getSettings, saveSettings } from './storage/settings.js';
 import { addHistory, getRecentHistory, getAllHistory, getHistoryByDay, exportHistory, clearHistory, deleteHistoryRecord } from './storage/history.js';
 import { learningPlanGenerator } from './learning-plan/generator.js';
+import { addKnowledgeRecord } from './storage/knowledgeGraph.js';
+import { extractKnowledgeFromSession } from './ai/knowledge-extractor.js';
 
 // ==================== Install ====================
 chrome.runtime.onInstalled.addListener((details) => {
@@ -188,6 +190,27 @@ async function startStreaming(message, sender) {
       url: '',
       chatHistory: updatedChat
     }).catch(()=>{});
+    if (coachMode && chatHistory && chatHistory.length > 0) {
+      setTimeout(() => {
+        extractKnowledgeFromSession(
+          String(problemText || '').slice(0, 3000),
+          updatedChat,
+          hintLevel || 2
+        ).then(result => {
+          if (result.knowledgePoints && result.knowledgePoints.length > 0) {
+            addKnowledgeRecord({
+              problemUrl: '',
+              knowledgePoints: result.knowledgePoints,
+              difficulty: result.difficulty,
+              tags: result.tags,
+              hintLevelUsed: hintLevel || 2,
+              masteryEstimate: result.masteryEstimate,
+              sourceRecordId: ''
+            }).catch(() => {});
+          }
+        }).catch(() => {});
+      }, 0);
+    }
     cleanupStream();
     setTimeout(() => chrome.storage.local.remove(key).catch(()=>{}), 600000);
   };

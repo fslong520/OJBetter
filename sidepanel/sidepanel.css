@@ -391,27 +391,57 @@ body {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 22px;
-  height: 22px;
+  padding: 3px 8px;
   border: none;
   border-radius: 4px;
-  background: rgba(0,0,0,0.06);
-  color: var(--text-secondary, #6b7280);
+  background: rgba(74, 144, 217, 0.85);
+  color: #fff;
   font-size: 11px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   opacity: 0;
   transition: opacity 0.15s, background 0.15s;
-  padding: 0;
-  line-height: 1;
+  line-height: 1.5;
+  z-index: 10;
+  pointer-events: none;
 }
 .chat-bubble:hover .copy-md-btn {
   opacity: 1;
+  pointer-events: auto;
 }
 .copy-md-btn:hover {
-  background: rgba(0,0,0,0.12);
+  background: #3a7bc8;
+}
+
+.plan-content {
+  position: relative;
+}
+.plan-content:hover .plan-copy-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.plan-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(74, 144, 217, 0.85);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 10;
+  pointer-events: none;
+  line-height: 1.5;
+}
+.plan-content:hover .plan-copy-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+.plan-copy-btn:hover {
+  background: #3a7bc8;
 }
 
 /* Thinking indicator */
@@ -1384,10 +1414,6 @@ body {
   margin: 8px 0;
   color: #666;
 }
-.plan-copy-btn:hover {
-  background: #3A80C9 !important;
-}
-
 /* Help Panel */
 .help-panel {
   display: none;
@@ -1510,4 +1536,72 @@ body {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+}
+
+/* ==================== Recommendation Panel ==================== */
+.plan-advice-box {
+  background: #f0f7ff;
+  border: 1px solid #d0e4f7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1a1a2e;
+}
+
+.plan-problem-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.plan-problem-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: #fafafa;
+  border: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.plan-problem-entry:hover { background: #f5f5f5; }
+.plan-problem-entry.entry-valid { border-left: 3px solid #10b981; }
+.plan-problem-entry.entry-invalid { border-left: 3px solid #ef4444; opacity: 0.6; }
+.plan-problem-entry.entry-unverified { border-left: 3px solid #f59e0b; }
+.plan-problem-entry.entry-unknown { border-left: 3px solid #9ca3af; opacity: 0.5; }
+
+.plan-problem-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+
+.plan-problem-info { flex: 1; font-size: 13px; line-height: 1.4; }
+.plan-problem-info .problem-title { font-weight: 500; color: #1a1a2e; }
+.plan-problem-info .problem-meta { font-size: 11px; color: #888; margin-top: 1px; }
+
+.plan-problem-link { flex-shrink: 0; }
+.plan-problem-link a {
+  display: inline-block; padding: 3px 10px; border-radius: 4px;
+  font-size: 12px; text-decoration: none; background: #3b82f6; color: #fff;
+  transition: background 0.15s;
+}
+.plan-problem-link a:hover { background: #2563eb; }
+.plan-problem-link .link-disabled {
+  display: inline-block; padding: 3px 10px; border-radius: 4px;
+  font-size: 12px; color: #999; background: #f0f0f0;
+}
+
+.plan-refresh-btn {
+  display: block; width: 100%; padding: 8px; margin-top: 12px;
+  border: 1px solid #d0d0d0; border-radius: 6px; background: #fff;
+  color: #666; font-size: 13px; cursor: pointer; text-align: center;
+  transition: all 0.15s;
+}
+.plan-refresh-btn:hover { background: #f5f5f5; border-color: #3b82f6; color: #3b82f6; }
+
+.plan-loading-entry {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  margin: 4px 0; border-radius: 6px; background: #fafafa;
+  border: 1px solid #eee; font-size: 13px; color: #999;
 }
