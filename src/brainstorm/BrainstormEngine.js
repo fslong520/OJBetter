@@ -7,6 +7,7 @@
  */
 
 import { getUnifiedBrainstormPrompt } from './BrainstormPrompts.js';
+import { augmentHistoryWithRedlineAnchors } from '../coach/personas.js';
 import { getSettings } from '../storage/settings.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
 
@@ -61,6 +62,7 @@ export class BrainstormEngine {
     await this._streamRequest({
       systemPrompt,
       messages: [
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userContext }
       ],
       ...callbacks
@@ -109,11 +111,11 @@ export class BrainstormEngine {
       { role: 'user', content: `## 当前题目\n${this.problemText.slice(0, 4000)}` }
     ];
 
-    // 加入对话历史（取最近 10 轮上下文，避免超长）
+    // 加入对话历史（取最近 10 轮上下文，避免超长），并按节奏重注入红线锚点，防止长对话稀释约束
     const recentHistory = this.chatHistory.slice(-20);
-    for (const msg of recentHistory) {
-      const content = typeof msg.content === 'string' ? msg.content.slice(0, 2000) : msg.content;
-      messages.push({ role: msg.role, content });
+    const anchoredHistory = augmentHistoryWithRedlineAnchors(recentHistory, { maxContentLen: 2000 });
+    for (const msg of anchoredHistory) {
+      messages.push({ role: msg.role, content: msg.content });
     }
 
     this.onSparkCallback = callbacks.onSpark || null;

@@ -4,8 +4,8 @@
 
 **引导孩子独立思考，用流程图和伪代码启发编程思维**
 
-[![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-v1.5.0-green?style=flat-square)](https://github.com/fslong520/OJBetter)
-[![Edge Extension](https://img.shields.io/badge/Edge%20Extension-v1.5.0-blue?style=flat-square)](https://github.com/fslong520/OJBetter)
+[![Chrome Extension](https://img.shields.io/badge/Chrome%20Extension-v1.7.0-green?style=flat-square)](https://github.com/fslong520/OJBetter)
+[![Edge Extension](https://img.shields.io/badge/Edge%20Extension-v1.7.0-blue?style=flat-square)](https://github.com/fslong520/OJBetter)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)]()
 
 </div>
@@ -33,6 +33,7 @@ OJBetter 是一款 Chrome 扩展，作为渐进式 AI 编程助教，专为信�
 - **4种教练人格**：沉稳学长"老周"、元气好友"小满"、脱口秀"老梗"、竞赛大佬"阿锐"，可切换风格
 - **代码调试模式**：自动检测代码提交，引导自主发现 bug，每轮附带可运行的测试数据
 - **禁止自由聊天**：只回答与当前题目相关的问题，防止学生破限
+- **长对话防破限**：把红线约束做成"锚点"，随对话增长按节奏重注入系统提示，防止上下文一多就把系统提示词淹没、让孩子绕过限制直接要答案；并对常见破限话术（求代码、改变身份、忽略指令、伪造场景）明确设防
 
 ### 🛠️ 核心技术
 - **Chrome Side Panel**：侧边栏界面，不打断浏览体验
