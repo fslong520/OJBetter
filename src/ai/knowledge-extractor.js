@@ -5,6 +5,7 @@
 
 import { getSettings } from '../storage/settings.js';
 import { ZEN_BASE_URL } from '../config/models.js';
+import { ZEN_SESSION_HEADER } from '../config/zen-session.js';
 
 async function _getConfig() {
   const settings = await getSettings();
@@ -142,7 +143,8 @@ hintLevel = ${hintLevel}（1=仅思路, 2=流程图, 3=伪代码）
     const url = `${config.baseURL}/chat/completions`;
     const headers = {
       'Content-Type': 'application/json',
-      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
+      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)',
+      ...ZEN_SESSION_HEADER
     };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
 

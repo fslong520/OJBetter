@@ -4,6 +4,18 @@
 
 const ZEN_API = 'https://opencode.ai/zen/v1';
 
+// Zen 网关要求会话头（UUID），缺失报 400 MissingSessionID：
+// "Error from provider (Console): OpenCode's free tier can only be used in OpenCode"
+// 与 src/config/zen-session.js 同逻辑（本页为普通 script，无法 import）。
+const ZEN_SESSION_HEADER = (() => {
+  const hex = (n) =>
+    Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const id = (crypto?.randomUUID)
+    ? crypto.randomUUID()
+    : `${hex(8)}-${hex(4)}-4${hex(3)}-${hex(4)}-${hex(12)}`;
+  return { 'x-opencode-session': id };
+})();
+
 /**
  * 兜底模型（仅 /models 接口完全不可用时用）。
  * 不要在这里写死 API 不存在的模型——opencode 模型会变，以服务器返回为准。
@@ -137,7 +149,9 @@ async function fetchModels() {
 
   try {
     // 1. 拉取模型列表
-    const resp = await fetch(`${ZEN_API}/models`);
+    const resp = await fetch(`${ZEN_API}/models`, {
+      headers: { ...ZEN_SESSION_HEADER }
+    });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     let rawModels = (data.data || []).map(m => ({ id: m.id, name: m.id }));
@@ -214,7 +228,7 @@ async function testSingleModel(model) {
   try {
     const resp = await fetch(`${ZEN_API}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ZEN_SESSION_HEADER },
       body: JSON.stringify({
         model: model.id,
         messages: [{ role: 'user', content: 'hi' }],

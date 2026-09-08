@@ -20,6 +20,7 @@
  */
 
 const USER_AGENT = 'OJBetter/1.1.5 (Chrome Extension)';
+import { ZEN_SESSION_HEADER } from '../config/zen-session.js';
 const FETCH_TIMEOUT_MS = 1_800_000;  // 30 min
 const READ_TIMEOUT_MS = 1_800_000;   // 30 min
 
@@ -33,7 +34,9 @@ export async function streamChatCompletion(config, messages, callbacks = {}) {
   const url = `${config.baseURL}/chat/completions`;
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': USER_AGENT
+    'User-Agent': USER_AGENT,
+    // Zen 网关要求会话头，缺失报 400 MissingSessionID（免费档被拒）
+    ...ZEN_SESSION_HEADER
   };
   if (config.apiKey) {
     headers['Authorization'] = `Bearer ${config.apiKey}`;

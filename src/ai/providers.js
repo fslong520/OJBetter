@@ -2,6 +2,7 @@
  * AI 提示生成器 - 渐进式提示 + 流式输出 + 翻译
  */
 import { ZEN_BASE_URL } from '../config/models.js';
+import { ZEN_SESSION_HEADER } from '../config/zen-session.js';
 import { getSettings } from '../storage/settings.js';
 import { getUnifiedCoachPrompt, DEFAULT_PERSONA_KEY, getPersona, getHardenedPersona, augmentHistoryWithRedlineAnchors } from '../coach/personas.js';
 import { streamChatCompletion } from '../lib/stream-fetcher.js';
@@ -377,7 +378,8 @@ class HintGenerator {
     const url = `${config.baseURL}/chat/completions`;
     const headers = {
       'Content-Type': 'application/json',
-      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
+      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)',
+      ...ZEN_SESSION_HEADER
     };
     if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
 

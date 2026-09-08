@@ -7,6 +7,7 @@
 import { getKnowledgeAggregates, getKnowledgeStats, saveStageAnalysis, getStageAnalysis, getAllKnowledgeRecords } from '../storage/knowledgeGraph.js';
 import { getSettings } from '../storage/settings.js';
 import { ZEN_BASE_URL } from '../config/models.js';
+import { ZEN_SESSION_HEADER } from '../config/zen-session.js';
 
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 小时
 const MIN_RECORDS = 3;
@@ -179,7 +180,8 @@ ${codeAnalysisText}
     const url = `${config.baseURL}/chat/completions`;
     const headers = {
       'Content-Type': 'application/json',
-      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)'
+      'User-Agent': 'OJBetter/1.1.3 (Chrome Extension)',
+      ...ZEN_SESSION_HEADER
     };
     if (config.apiKey) {
       headers['Authorization'] = `Bearer ${config.apiKey}`;

@@ -1,5 +1,20 @@
 # 更新日志
 
+## [1.8.0] - 2026-09-08
+
+### 🐛 修复：OpenCode Zen 免费档 400 报错
+
+- **修复「Error from provider (Console): OpenCode's free tier can only be used in OpenCode」**：Zen 网关（2026-09 起）要求所有请求携带 `x-opencode-session` 会话头（UUID 格式），缺失即 400 MissingSessionID。本次为全部 5 处请求点补上该头：
+  - `src/lib/stream-fetcher.js`（流式主通道：提示/对话/翻译/头脑风暴）
+  - `src/ai/providers.js`（学习报告分析）
+  - `src/ai/knowledge-extractor.js`（知识点提取）
+  - `src/learning-plan/stage-analyzer.js`（阶段分析）
+  - `settings/settings.js`（模型列表拉取 + 逐模型可用性实测探针）
+- **新增 `src/config/zen-session.js`**：每 JS context 生成一次固定 UUID 会话标识（`crypto.randomUUID`，带兜底实现），ES module 侧统一 import；设置页为普通 script，就地内联同款逻辑
+- **免费档无需 API key**：实测匿名请求 + 会话头即可调用免费模型（`mimo-v2.5-free`、`nemotron-3.5-lightning-free` 等），设置页探针恢复正常
+
+---
+
 ## [1.7.0] - 2026-09-03
 
 ### 🛡️ 系统提示词抗稀释 / 防破限加固
